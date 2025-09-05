@@ -15,7 +15,69 @@ from .logging_setup import setup_logging
 def create_app() -> FastAPI:
     setup_logging()
     settings = get_settings()
-    app = FastAPI(title=settings.SERVICE_NAME, version="0.1.0")
+    
+    app = FastAPI(
+        title="AMR Classification Engine",
+        description="""
+        ## Antimicrobial Resistance (AMR) Classification Microservice
+        
+        This service classifies antimicrobial susceptibility test results according to clinical breakpoints.
+        It supports multiple input formats including FHIR R4 bundles and HL7v2 messages.
+        
+        ### Key Features:
+        - **FHIR R4 Support**: Process FHIR observation bundles
+        - **HL7v2 Support**: Parse HL7v2 OBR/OBX segments
+        - **EUCAST Guidelines**: Classification based on EUCAST v2025.1
+        - **Multiple Methods**: Supports both MIC and disc diffusion testing
+        - **Real-time Processing**: Fast classification with comprehensive validation
+        
+        ### Classification Results:
+        - **S** - Susceptible
+        - **I** - Susceptible, increased exposure
+        - **R** - Resistant
+        - **RR** - Resistant, rare resistance
+        
+        ### Authentication:
+        Some endpoints require admin authentication using the `X-Admin-Token` header.
+        """,
+        version="0.1.0",
+        contact={
+            "name": "AMR Team",
+            "email": "support@amr-engine.com",
+        },
+        license_info={
+            "name": "MIT License",
+            "url": "https://opensource.org/licenses/MIT",
+        },
+        servers=[
+            {
+                "url": "http://localhost:8080",
+                "description": "Development server"
+            },
+            {
+                "url": "http://localhost:8081", 
+                "description": "Docker development server"
+            }
+        ],
+        tags_metadata=[
+            {
+                "name": "health",
+                "description": "Health check and monitoring endpoints"
+            },
+            {
+                "name": "classification", 
+                "description": "AMR classification endpoints supporting FHIR and HL7v2"
+            },
+            {
+                "name": "administration",
+                "description": "Administrative endpoints requiring authentication"
+            },
+            {
+                "name": "metrics",
+                "description": "Prometheus metrics for monitoring"
+            }
+        ]
+    )
 
     @app.exception_handler(RulesValidationError)
     async def rules_error_handler(request: Request, exc: RulesValidationError):
