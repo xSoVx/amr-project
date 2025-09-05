@@ -3,8 +3,11 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=flat&logo=fastapi)](https://fastapi.tiangolo.com/)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/)
 [![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=flat&logo=docker&logoColor=white)](https://www.docker.com/)
+[![OpenTelemetry](https://img.shields.io/badge/OpenTelemetry-4285F4?style=flat&logo=opentelemetry&logoColor=white)](https://opentelemetry.io/)
+[![Prometheus](https://img.shields.io/badge/Prometheus-E6522C?style=flat&logo=prometheus&logoColor=white)](https://prometheus.io/)
+[![FHIR R4](https://img.shields.io/badge/FHIR_R4-326CE5?style=flat&logo=hl7&logoColor=white)](https://hl7.org/fhir/)
 
-Production-ready microservice for **Antimicrobial Resistance (AMR) classification**. Supports multiple input formats including FHIR R4 Bundles, HL7v2 messages, and direct JSON input. Applies EUCAST/CLSI-style rules and returns S/I/R/RR decisions with detailed reasoning.
+**Enterprise-ready microservice** for **Antimicrobial Resistance (AMR) classification** with comprehensive observability, audit logging, and multi-profile FHIR validation. Supports FHIR R4 Bundles, HL7v2 messages, and direct JSON input with EUCAST/CLSI-style rules, returning S/I/R/RR decisions with detailed reasoning and full compliance tracking.
 
 ## 🚀 Quick Start
 
@@ -29,6 +32,9 @@ docker run -p 8080:8080 --env-file .env amr-engine:latest
 
 # Or use docker-compose
 docker-compose -f docker/docker-compose.yml up --build
+
+# With full observability stack (Jaeger, Prometheus, Grafana)
+docker-compose -f docker/docker-compose.observability.yml up --build
 ```
 
 ## 📚 API Documentation
@@ -191,16 +197,20 @@ docker-compose -f docker/docker-compose.yml run tests
 
 ### Environment Variables (.env.example)
 ```bash
-# Rules configuration
+# Core Configuration
 AMR_RULES_PATH=amr_engine/rules/eucast_v_2025_1.yaml
-
-# Security
 ADMIN_TOKEN=change-me-in-production
-
-# Service configuration  
 SERVICE_NAME=amr-engine
 LOG_LEVEL=INFO
-EUCAST_VER=2025.1
+EUST_VER=EUCAST-2025.1
+
+# OpenTelemetry Tracing Configuration
+# OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:14268/api/traces
+# OTEL_TRACE_SAMPLE_RATE=1.0
+
+# Monitoring and Observability
+# PROMETHEUS_METRICS_PORT=9090
+# ENABLE_AUDIT_LOGGING=true
 
 # Optional: Custom breakpoint sources
 # CLSI_RULES_PATH=amr_engine/rules/clsi_2024.yaml
@@ -226,7 +236,7 @@ docker run -p 8080:8080 \
 - **Token-protected admin endpoints** - Secured rule reload functionality
 - **Input validation** - Comprehensive request validation and sanitization
 
-## 🏗️ Architecture
+## 🏗️ Enterprise Architecture
 
 ### Key Components
 - **FastAPI Framework** - Modern, fast web framework with automatic OpenAPI
@@ -234,19 +244,90 @@ docker run -p 8080:8080 \
 - **FHIR Adapter** - FHIR R4 resource parsing and validation
 - **HL7v2 Parser** - HL7v2 message segment parsing
 - **Rule Engine** - YAML/JSON-based classification rules
-- **Prometheus Metrics** - Built-in monitoring and observability
+- **OpenTelemetry Tracing** - Distributed tracing with Jaeger integration
+- **Prometheus Metrics** - Comprehensive domain-specific metrics
+- **FHIR AuditEvent Logging** - Compliance-ready audit trails
 
-### Rule Management
+### Enterprise Features
+
+#### 🔍 **Observability & Monitoring**
+- **Distributed Tracing** - OpenTelemetry integration with Jaeger
+- **Domain-Specific Metrics** - Classification, terminology, validation, and performance metrics
+- **Structured Error Taxonomy** - Actionable error codes with FHIR OperationOutcome integration
+- **Real-Time Dashboards** - Grafana integration for comprehensive monitoring
+
+#### 🛡️ **Compliance & Audit**
+- **FHIR AuditEvent Generation** - Standards-compliant audit logging
+- **Classification Tracking** - Full audit trail for all classification decisions
+- **Rule Version Auditing** - Track which rule versions were applied
+- **Profile Pack Selection Auditing** - Record tenant-specific profile pack usage
+
+#### 🏥 **Multi-Profile FHIR Validation**
+- **IL-Core Support** - Israeli national FHIR implementation guide
+- **US-Core Support** - US national FHIR implementation guide  
+- **IPS Support** - International Patient Summary profiles
+- **Custom Profile Packs** - Support for organization-specific profiles
+- **Tenant-Specific Assignment** - Multi-tenant profile pack management
+- **Conflict Resolution** - Intelligent priority-based profile selection
+
+#### 🔧 **Rule Management**
 - **Startup Validation** - Rules validated against JSON Schema at startup
 - **Hot Reload** - Update rules without service restart via `/admin/rules/reload`
 - **Version Control** - Rule versions tracked and reported in results
 - **Multiple Sources** - Support for EUCAST, CLSI, and custom rule sets
+- **Expert Rules Engine** - Intrinsic resistance and combination therapy handling
 
-### Logging & Monitoring
+### Observability Stack
+
+#### 📊 **Metrics & Dashboards**
+- **Prometheus** - Time-series metrics collection
+- **Grafana** - Real-time dashboards and alerting
+- **Custom AMR Metrics** - Classification rates, error rates, terminology coverage
+
+#### 🔍 **Distributed Tracing**
+- **Jaeger** - Request flow visualization
+- **Service Dependencies** - Cross-service call tracking
+- **Performance Profiling** - Latency and bottleneck identification
+
+#### 📝 **Logging & Audit**
 - **Structured JSON Logs** - Request ID and classification summary
-- **Prometheus Metrics** - Classification counters by decision type
-- **Health Checks** - Kubernetes/Docker-ready health endpoints
-- **Performance Monitoring** - Request timing and error tracking
+- **FHIR AuditEvents** - Standards-compliant audit trails
+- **Health Checks** - Kubernetes/Docker-ready endpoints
+- **Error Tracking** - Comprehensive error categorization
+
+## 🔍 Observability & Monitoring
+
+### Full Stack Deployment
+Start the complete observability stack with:
+
+```bash
+docker-compose -f docker/docker-compose.observability.yml up --build
+```
+
+This provides:
+
+#### 🌐 **Access URLs**
+- **AMR Engine**: http://localhost:8080
+- **Swagger API Docs**: http://localhost:8080/docs  
+- **Jaeger Tracing UI**: http://localhost:16686
+- **Prometheus Metrics**: http://localhost:9090
+- **Grafana Dashboards**: http://localhost:3000 (admin/admin)
+
+#### 📊 **Key Metrics Available**
+- `amr_classifications_total` - Total classifications by decision, organism, antibiotic
+- `amr_classification_duration_seconds` - Classification processing time
+- `amr_terminology_lookups_total` - Terminology service usage
+- `amr_profile_validations_total` - FHIR validation results
+- `amr_audit_events_total` - Compliance audit event generation
+- `amr_structured_errors_total` - Error categorization and tracking
+
+#### 🔎 **Distributed Tracing**
+View request flows through:
+1. **Classification Operations** - Complete request lifecycle from input to decision
+2. **FHIR Processing** - Bundle parsing, validation, and resource extraction  
+3. **Rule Evaluation** - Rule matching and decision logic execution
+4. **Terminology Lookups** - Code system validation and mapping
+5. **Profile Validation** - Multi-tenant FHIR profile pack validation
 
 ## 🚢 Deployment
 
@@ -294,11 +375,27 @@ spec:
 ```
 
 ### Production Considerations
-- Use environment-specific rule files
-- Configure appropriate resource limits
-- Set up proper monitoring and alerting
-- Implement proper backup and recovery for rule files
-- Use secrets management for ADMIN_TOKEN
+
+#### 🏥 **Healthcare & Compliance**
+- **FHIR R4 Compliance** - Full conformance with FHIR R4 specification
+- **Multi-Profile Support** - IL-Core, US-Core, IPS, and custom profiles
+- **Audit Trail Generation** - FHIR AuditEvent resources for regulatory compliance
+- **Tenant Isolation** - Multi-tenant profile pack assignment and validation
+- **Data Privacy** - No patient data persistence, stateless processing
+
+#### 🔧 **Operational Excellence**
+- **Environment-Specific Rules** - Use appropriate rule files per environment
+- **Resource Limits** - Configure memory and CPU limits for containers
+- **Monitoring & Alerting** - Set up Grafana alerts for error rates and performance
+- **Backup & Recovery** - Implement proper backup strategy for rule files
+- **Secrets Management** - Use Kubernetes secrets or vault for ADMIN_TOKEN
+- **High Availability** - Deploy with multiple replicas and health checks
+
+#### 🔍 **Observability Requirements**
+- **Distributed Tracing** - Configure OTEL_EXPORTER_OTLP_ENDPOINT for trace collection
+- **Metrics Collection** - Ensure Prometheus can scrape /metrics endpoint
+- **Log Aggregation** - Collect structured JSON logs for analysis
+- **Dashboard Configuration** - Import Grafana dashboards for AMR-specific metrics
 
 ## 🤝 Contributing
 
