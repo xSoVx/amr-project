@@ -6,6 +6,7 @@ from typing import Any, Dict, Optional
 from .reasoning import disc_reason, mic_reason
 from .rules_loader import Rule, RulesLoader
 from .schemas import ClassificationInput, ClassificationResult
+from .expert_rules import expert_rule_engine
 
 logger = logging.getLogger(__name__)
 
@@ -15,9 +16,28 @@ class Classifier:
         self.loader = loader
 
     def classify(self, item: ClassificationInput) -> ClassificationResult:
+        # Validate features for expert rules
+        feature_warnings = expert_rule_engine.validate_features_for_rules(item)
+        
         rule = None
         ruleset = self.loader.ruleset or self.loader.load()
         rule = ruleset.find(item.organism, item.antibiotic, item.method)
+        
+        # Apply expert rules first (intrinsic resistance, etc.)
+        expert_decision, expert_rationale = expert_rule_engine.apply_rules(item, "RR")
+        if expert_decision != "RR" and expert_rationale:
+            # Expert rule override
+            return ClassificationResult(
+                specimenId=item.specimenId,
+                organism=item.organism,
+                antibiotic=item.antibiotic,
+                method=item.method,
+                input=item.model_dump(exclude_none=True),
+                decision=expert_decision,
+                reason=f"Expert rule: {'; '.join(expert_rationale)}",
+                ruleVersion=ruleset.version,
+            )
+        
         # Missing rule
         if not rule:
             return ClassificationResult(
@@ -27,7 +47,7 @@ class Classifier:
                 method=item.method,
                 input=item.model_dump(exclude_none=True),
                 decision="RR",
-                reason="No matching rule found",
+                reason="No matching rule found" + (f"; Warnings: {'; '.join(feature_warnings)}" if feature_warnings else ""),
                 ruleVersion=ruleset.version,
             )
 
@@ -68,15 +88,25 @@ class Classifier:
                 decision = "R"
             else:
                 decision = "RR"
-            reason = mic_reason(val, s_max, i_rng if i_rng else None, r_min, rule.version or ruleset.version)
+            baseline_reason = mic_reason(val, s_max, i_rng if i_rng else None, r_min, rule.version or ruleset.version)
+            
+            # Apply expert rules to baseline decision
+            final_decision, expert_rationale = expert_rule_engine.apply_rules(item, decision)
+            
+            final_reason = baseline_reason
+            if expert_rationale:
+                final_reason += f"; Expert override: {'; '.join(expert_rationale)}"
+            if feature_warnings:
+                final_reason += f"; Warnings: {'; '.join(feature_warnings)}"
+            
             return ClassificationResult(
                 specimenId=item.specimenId,
                 organism=item.organism,
                 antibiotic=item.antibiotic,
                 method=item.method,
                 input=item.model_dump(exclude_none=True),
-                decision=decision,
-                reason=reason,
+                decision=final_decision,
+                reason=final_reason,
                 ruleVersion=rule.version or ruleset.version,
             )
 
@@ -104,15 +134,25 @@ class Classifier:
                 decision = "R"
             else:
                 decision = "RR"
-            reason = disc_reason(val, s_min, i_rng if i_rng else None, r_max, rule.version or ruleset.version)
+            baseline_reason = disc_reason(val, s_min, i_rng if i_rng else None, r_max, rule.version or ruleset.version)
+            
+            # Apply expert rules to baseline decision
+            final_decision, expert_rationale = expert_rule_engine.apply_rules(item, decision)
+            
+            final_reason = baseline_reason
+            if expert_rationale:
+                final_reason += f"; Expert override: {'; '.join(expert_rationale)}"
+            if feature_warnings:
+                final_reason += f"; Warnings: {'; '.join(feature_warnings)}"
+            
             return ClassificationResult(
                 specimenId=item.specimenId,
                 organism=item.organism,
                 antibiotic=item.antibiotic,
                 method=item.method,
                 input=item.model_dump(exclude_none=True),
-                decision=decision,
-                reason=reason,
+                decision=final_decision,
+                reason=final_reason,
                 ruleVersion=rule.version or ruleset.version,
             )
 
