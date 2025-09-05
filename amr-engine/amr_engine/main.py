@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
 
 from fastapi import FastAPI, Request
@@ -9,12 +10,21 @@ from fastapi.responses import JSONResponse
 from .api.routes import router
 from .config import get_settings
 from .core.exceptions import FHIRValidationError, RulesValidationError
+from .core.tracing import init_tracing, get_tracer
 from .logging_setup import setup_logging
 
 
 def create_app() -> FastAPI:
     setup_logging()
     settings = get_settings()
+    
+    # Initialize OpenTelemetry tracing
+    tracing = init_tracing(
+        service_name=getattr(settings, 'SERVICE_NAME', 'amr-engine'),
+        service_version="0.1.0",
+        otlp_endpoint=os.getenv('OTEL_EXPORTER_OTLP_ENDPOINT'),
+        sample_rate=float(os.getenv('OTEL_TRACE_SAMPLE_RATE', '1.0'))
+    )
     
     app = FastAPI(
         title="AMR Classification Engine",
@@ -87,6 +97,10 @@ def create_app() -> FastAPI:
     async def fhir_error_handler(request: Request, exc: FHIRValidationError):
         return JSONResponse(status_code=400, content={"resourceType": "OperationOutcome", "issue": exc.issues or [{"severity": "error", "diagnostics": exc.detail}]})
 
+    # Instrument FastAPI with tracing
+    tracing.instrument_fastapi(app)
+    tracing.instrument_requests()
+    
     app.include_router(router)
     return app
 

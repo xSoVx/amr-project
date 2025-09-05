@@ -7,6 +7,7 @@ from .exceptions import FHIRValidationError
 from .schemas import ClassificationInput
 from .fhir_resources import FHIRValidator, FHIRResourceExtractor
 from .terminology import terminology_service
+from .tracing import get_tracer
 
 logger = logging.getLogger(__name__)
 
@@ -170,8 +171,10 @@ async def _parse_enhanced_method(obs_data: Dict[str, Any], value: Optional[Dict[
     return method
 
 
+@get_tracer().trace_fhir_operation(resource_type="Bundle", operation="parse")
 async def parse_bundle_or_observations(payload: Any) -> List[ClassificationInput]:
     """Enhanced FHIR parser with comprehensive validation and SNOMED support."""
+    tracer = get_tracer()
     validator = FHIRValidator()
     extractor = FHIRResourceExtractor()
     

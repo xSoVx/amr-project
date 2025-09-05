@@ -7,6 +7,7 @@ from .reasoning import disc_reason, mic_reason
 from .rules_loader import Rule, RulesLoader
 from .schemas import ClassificationInput, ClassificationResult
 from .expert_rules import expert_rule_engine
+from .tracing import get_tracer
 
 logger = logging.getLogger(__name__)
 
@@ -15,16 +16,34 @@ class Classifier:
     def __init__(self, loader: RulesLoader) -> None:
         self.loader = loader
 
+    @get_tracer().trace_classification()
     def classify(self, item: ClassificationInput) -> ClassificationResult:
+        tracer = get_tracer()
+        
+        # Add trace attributes for classification parameters
+        tracer.add_span_attributes(
+            organism=item.organism or "unknown",
+            antibiotic=item.antibiotic or "unknown", 
+            method=item.method or "unknown",
+            specimen_id=item.specimenId or "unknown"
+        )
+        
         # Validate features for expert rules
         feature_warnings = expert_rule_engine.validate_features_for_rules(item)
         
         rule = None
         ruleset = self.loader.ruleset or self.loader.load()
-        rule = ruleset.find(item.organism, item.antibiotic, item.method)
+        
+        # Trace rule lookup
+        with tracer.trace_rule_evaluation("lookup", item.organism or "unknown", item.antibiotic or "unknown") as span:
+            rule = ruleset.find(item.organism, item.antibiotic, item.method)
+            span.set_attribute("rule_found", rule is not None)
         
         # Apply expert rules first (intrinsic resistance, etc.)
-        expert_decision, expert_rationale = expert_rule_engine.apply_rules(item, "RR")
+        with tracer.start_span("amr.expert_rules") as span:
+            expert_decision, expert_rationale = expert_rule_engine.apply_rules(item, "RR")
+            span.set_attribute("expert_decision", expert_decision)
+            span.set_attribute("expert_applied", expert_decision != "RR")
         if expert_decision != "RR" and expert_rationale:
             # Expert rule override
             return ClassificationResult(
