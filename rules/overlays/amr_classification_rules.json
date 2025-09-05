@@ -1,0 +1,527 @@
+{
+  "schema_version": "1.0.0",
+  "metadata": {
+    "name": "AMR Classification Rules",
+    "description": "Deterministic rule set for S/I/R/REVIEW classification using guideline breakpoints, intrinsic resistance, and expert rules (EUCAST/CLSI/2011 Wiley interpretive rules) plus local policy toggles.",
+    "guideline_precedence": [
+      "LOCAL",
+      "EUCAST_2024.1",
+      "CLSI_M100_ED33"
+    ],
+    "units": {
+      "mic": "mg/L",
+      "zone": "mm"
+    },
+    "classification_labels": {
+      "S": "Susceptible",
+      "I": "Intermediate",
+      "R": "Resistant",
+      "REVIEW": "Requires Review"
+    }
+  },
+  "breakpoint_sources": [
+    {
+      "id": "EUCAST_2024.1",
+      "type": "library",
+      "description": "EUCAST v2024.1 breakpoints for MIC/zone by organism, site, and regimen",
+      "url": "local://breakpoints/eucast/2024.1",
+      "notes": "Use EUCAST infection-site and exposure (I) semantics. Do not infer zone breakpoints where EUCAST prohibits the method."
+    },
+    {
+      "id": "CLSI_M100_ED33",
+      "type": "library",
+      "description": "CLSI M100 Ed.33 breakpoints for MIC/zone",
+      "url": "local://breakpoints/clsi/M100-Ed33",
+      "notes": "Apply when EUCAST gaps exist or local policy prefers CLSI."
+    },
+    {
+      "id": "LOCAL",
+      "type": "overlay",
+      "description": "Local overrides and additions (site policies, dosing, formulary)",
+      "url": "local://breakpoints/local",
+      "notes": "Higher precedence than global libraries where provided."
+    }
+  ],
+  "policy_flags": {
+    "esbl_override_beta_lactams": true,
+    "ampc_third_gen_cephalosporin_override": true,
+    "mrsa_betalactam_override": true,
+    "clinda_requires_d_test": true,
+    "restrict_nitrofurantoin_to_urine": true
+  },
+  "organism_sets": [
+    {
+      "id": "Enterobacterales",
+      "match": { "genus_in": ["Escherichia", "Klebsiella", "Enterobacter", "Citrobacter", "Proteus", "Morganella", "Providencia", "Serratia", "Salmonella", "Shigella"] }
+    },
+    {
+      "id": "Enterococcus_spp",
+      "match": { "genus_in": ["Enterococcus"] }
+    },
+    {
+      "id": "Klebsiella_spp",
+      "match": { "genus_in": ["Klebsiella"] }
+    },
+    {
+      "id": "Pseudomonas_aeruginosa",
+      "match": { "genus": "Pseudomonas", "species": "aeruginosa" }
+    },
+    {
+      "id": "Proteae_group",
+      "match": { "genus_in": ["Proteus", "Morganella", "Providencia"] }
+    },
+    {
+      "id": "Stenotrophomonas_maltophilia",
+      "match": { "genus": "Stenotrophomonas", "species": "maltophilia" }
+    },
+    {
+      "id": "Burkholderia_cepacia_complex",
+      "match": { "genus": "Burkholderia", "species_pattern": "cepacia*" }
+    },
+    {
+      "id": "Staphylococcus_aureus",
+      "match": { "genus": "Staphylococcus", "species": "aureus" }
+    },
+    {
+      "id": "CoNS",
+      "match": { "genus": "Staphylococcus", "species_in": ["epidermidis", "saprophyticus", "haemolyticus", "lugdunensis", "hominis"] }
+    },
+    {
+      "id": "Streptococcus_pneumoniae",
+      "match": { "genus": "Streptococcus", "species": "pneumoniae" }
+    }
+  ],
+  "antibiotic_sets": [
+    { "id": "Cephalosporins_all", "antibiotic_in": ["cefalexin", "cefazolin", "cefoxitin", "cefotaxime", "ceftazidime", "ceftriaxone", "cefepime", "ceftaroline", "ceftobiprole"] },
+    { "id": "Beta_lactams_aztreonam", "antibiotic_in": ["ampicillin", "amoxicillin", "amoxicillin-clavulanate", "piperacillin-tazobactam", "ticarcillin-clavulanate", "aztreonam", "cefalexin", "cefazolin", "cefoxitin", "cefotaxime", "ceftazidime", "ceftriaxone", "cefepime"] },
+    { "id": "Carbapenems", "antibiotic_in": ["imipenem", "meropenem", "doripenem", "ertapenem"] },
+    { "id": "Polymyxins", "antibiotic_in": ["colistin", "polymyxin B"] },
+    { "id": "Macrolides", "antibiotic_in": ["erythromycin", "azithromycin", "clarithromycin"] },
+    { "id": "Lincosamides", "antibiotic_in": ["clindamycin"] },
+    { "id": "Fluoroquinolones", "antibiotic_in": ["ciprofloxacin", "levofloxacin", "moxifloxacin", "ofloxacin"] }
+  ],
+  "rules": [
+    {
+      "id": "METH-001",
+      "name": "Colistin/Polymyxin method validation",
+      "priority": 1,
+      "type": "method_validation",
+      "match": {
+        "antibiotic_in_ref": "Polymyxins"
+      },
+      "logic": [
+        {
+          "if": { "not_in": { "field": "method", "set": ["BMD", "Broth microdilution"] } },
+          "then": { "classification": "REVIEW", "message": "Invalid method for polymyxins; use BMD only per EUCAST/CLSI." }
+        }
+      ],
+      "exceptions": []
+    },
+    {
+      "id": "SITE-001",
+      "name": "Nitrofurantoin restricted to urine isolates",
+      "priority": 2,
+      "type": "site_applicability",
+      "match": {
+        "antibiotic_in": ["nitrofurantoin"]
+      },
+      "logic": [
+        {
+          "if": { "not_in": { "field": "specimen_source", "set": ["urine"] } },
+          "then": { "classification": "REVIEW", "message": "Nitrofurantoin interpretation limited to urinary isolates." }
+        }
+      ],
+      "exceptions": []
+    },
+    {
+      "id": "INTR-001",
+      "name": "Intrinsic resistance: Enterococcus vs cephalosporins",
+      "priority": 3,
+      "type": "intrinsic_resistance",
+      "match": {
+        "organism_set_ref": "Enterococcus_spp",
+        "antibiotic_set_ref": "Cephalosporins_all"
+      },
+      "logic": [
+        { "if": { "always": true }, "then": { "classification": "R", "message": "Enterococcus spp. intrinsically resistant to cephalosporins." } }
+      ],
+      "exceptions": []
+    },
+    {
+      "id": "INTR-002",
+      "name": "Intrinsic resistance: Klebsiella vs ampicillin",
+      "priority": 4,
+      "type": "intrinsic_resistance",
+      "match": {
+        "organism_set_ref": "Klebsiella_spp",
+        "antibiotic_in": ["ampicillin"]
+      },
+      "logic": [
+        { "if": { "always": true }, "then": { "classification": "R", "message": "Klebsiella spp. intrinsically resistant to ampicillin (chromosomal beta-lactamase)." } }
+      ],
+      "exceptions": []
+    },
+    {
+      "id": "INTR-003",
+      "name": "Intrinsic resistance: P. aeruginosa broad intrinsic R",
+      "priority": 5,
+      "type": "intrinsic_resistance",
+      "match": {
+        "organism_set_ref": "Pseudomonas_aeruginosa",
+        "antibiotic_in": ["ampicillin", "amoxicillin", "amoxicillin-clavulanate", "cefazolin", "cefalexin", "ceftriaxone", "cefuroxime", "ertapenem", "trimethoprim-sulfamethoxazole", "tetracycline", "chloramphenicol"]
+      },
+      "logic": [
+        { "if": { "always": true }, "then": { "classification": "R", "message": "P. aeruginosa intrinsically resistant to listed agents." } }
+      ],
+      "exceptions": []
+    },
+    {
+      "id": "INTR-004",
+      "name": "Intrinsic resistance: Proteae vs nitrofurantoin and polymyxins",
+      "priority": 6,
+      "type": "intrinsic_resistance",
+      "match": {
+        "organism_set_ref": "Proteae_group",
+        "antibiotic_in_ref_any": ["nitrofurantoin", "colistin", "polymyxin B"]
+      },
+      "logic": [
+        { "if": { "always": true }, "then": { "classification": "R", "message": "Proteus/Morganella/Providencia intrinsically resistant to nitrofurantoin and polymyxins." } }
+      ],
+      "exceptions": []
+    },
+    {
+      "id": "INTR-005",
+      "name": "Intrinsic resistance: S. maltophilia vs carbapenems",
+      "priority": 7,
+      "type": "intrinsic_resistance",
+      "match": {
+        "organism_set_ref": "Stenotrophomonas_maltophilia",
+        "antibiotic_set_ref": "Carbapenems"
+      },
+      "logic": [
+        { "if": { "always": true }, "then": { "classification": "R", "message": "Stenotrophomonas maltophilia intrinsically resistant to carbapenems." } }
+      ],
+      "exceptions": []
+    },
+    {
+      "id": "INTR-006",
+      "name": "Intrinsic resistance: B. cepacia complex vs polymyxins",
+      "priority": 8,
+      "type": "intrinsic_resistance",
+      "match": {
+        "organism_set_ref": "Burkholderia_cepacia_complex",
+        "antibiotic_set_ref": "Polymyxins"
+      },
+      "logic": [
+        { "if": { "always": true }, "then": { "classification": "R", "message": "Burkholderia cepacia complex intrinsically resistant to polymyxins." } }
+      ],
+      "exceptions": []
+    },
+    {
+      "id": "EXPR-001",
+      "name": "ESBL phenotype override for Enterobacterales",
+      "priority": 9,
+      "type": "expert_override",
+      "match": {
+        "organism_set_ref": "Enterobacterales",
+        "phenotype_flags_any": ["ESBL_positive"]
+      },
+      "logic": [
+        {
+          "if": { "and": [ { "eq": { "field": "policy.esbl_override_beta_lactams", "value": true } }, { "in": { "field": "antibiotic", "set_ref": "Beta_lactams_aztreonam" } } ] },
+          "then": { "classification": "R", "message": "ESBL detected: override to R for penicillins, cephalosporins, and aztreonam per local policy." }
+        }
+      ],
+      "exceptions": [
+        {
+          "when": { "in": { "field": "antibiotic", "set": ["cefoxitin"] } },
+          "set_classification": "REVIEW",
+          "message": "Cefoxitin not in ESBL override scope; confirm mechanism."
+        },
+        {
+          "when": { "in": { "field": "antibiotic", "set_ref": "Carbapenems" } },
+          "set_classification": "REVIEW",
+          "message": "Carbapenems unaffected by ESBL alone; check carbapenemase."
+        }
+      ]
+    },
+    {
+      "id": "EXPR-002",
+      "name": "AmpC derepression override",
+      "priority": 10,
+      "type": "expert_override",
+      "match": {
+        "organism_in": ["Enterobacter cloacae complex", "Citrobacter freundii", "Klebsiella aerogenes"],
+        "phenotype_flags_any": ["AmpC_derepressed", "AmpC_screen_positive"]
+      },
+      "logic": [
+        {
+          "if": { "in": { "field": "antibiotic", "set": ["cefotaxime", "ceftriaxone", "ceftazidime"] } },
+          "then": { "classification": "R", "message": "AmpC derepression: treat 3rd-gen cephalosporins as Resistant." }
+        },
+        {
+          "if": { "eq": { "field": "antibiotic", "value": "piperacillin-tazobactam" } },
+          "then": { "classification": "REVIEW", "message": "Piperacillin-tazobactam in AmpC derepression: requires expert review." }
+        }
+      ],
+      "exceptions": []
+    },
+    {
+      "id": "EXPR-003",
+      "name": "MRSA beta-lactam override",
+      "priority": 11,
+      "type": "expert_override",
+      "match": {
+        "organism_set_ref": "Staphylococcus_aureus",
+        "phenotype_flags_any": ["mecA_positive", "mecC_positive", "Cefoxitin_screen_positive"]
+      },
+      "logic": [
+        {
+          "if": { "and": [ { "eq": { "field": "policy.mrsa_betalactam_override", "value": true } }, { "in": { "field": "antibiotic", "set_ref": "Beta_lactams_aztreonam" } } ] },
+          "then": { "classification": "R", "message": "MRSA: override most beta-lactams to Resistant." }
+        }
+      ],
+      "exceptions": [
+        {
+          "when": { "in": { "field": "antibiotic", "set": ["ceftaroline", "ceftobiprole"] } },
+          "set_classification": "REVIEW",
+          "message": "Anti-MRSA cephalosporins require specific MIC interpretation."
+        }
+      ]
+    },
+    {
+      "id": "EXPR-004",
+      "name": "Inducible clindamycin resistance in staphylococci (D-test)",
+      "priority": 12,
+      "type": "expert_override",
+      "match": {
+        "organism_any_set_ref": ["Staphylococcus_aureus", "CoNS"],
+        "antibiotic_in": ["clindamycin"]
+      },
+      "logic": [
+        {
+          "if": {
+            "and": [
+              { "eq": { "field": "co_results.erythromycin.category", "value": "R" } },
+              { "in": { "field": "co_results.clindamycin.category", "set": ["S", "I"] } },
+              { "eq": { "field": "policy.clinda_requires_d_test", "value": true } }
+            ]
+          },
+          "then": { "classification": "REVIEW", "message": "Erythromycin-R/Clindamycin-S pattern; D-test required." }
+        },
+        {
+          "if": {
+            "eq": { "field": "phenotype_flags.D_test", "value": "positive" }
+          },
+          "then": { "classification": "R", "message": "Positive D-test indicates inducible resistance; report clindamycin Resistant." }
+        }
+      ],
+      "exceptions": []
+    },
+    {
+      "id": "SITE-002",
+      "name": "S. pneumoniae penicillin site-specific breakpoints",
+      "priority": 13,
+      "type": "site_specific_breakpoint_selector",
+      "match": {
+        "organism_set_ref": "Streptococcus_pneumoniae",
+        "antibiotic_in": ["penicillin"]
+      },
+      "logic": [
+        {
+          "if": { "eq": { "field": "infection_site", "value": "CNS" } },
+          "then": { "context.breakpoint_context": "meningitis" }
+        },
+        {
+          "if": { "not_eq": { "field": "infection_site", "value": "CNS" } },
+          "then": { "context.breakpoint_context": "non-meningitis" }
+        }
+      ],
+      "exceptions": [
+        {
+          "when": { "missing": { "field": "infection_site" } },
+          "set_classification": "REVIEW",
+          "message": "Penicillin S. pneumoniae requires site-specific context (meningitis vs non-meningitis)."
+        }
+      ]
+    },
+    {
+      "id": "BP-001",
+      "name": "Generic MIC-based breakpoint evaluation",
+      "priority": 20,
+      "type": "breakpoint_evaluation",
+      "match": {
+        "method_in": ["MIC", "MIC_BMD"]
+      },
+      "logic": [
+        {
+          "if": {
+            "has_breakpoint": {
+              "source_precedence": ["LOCAL", "EUCAST_2024.1", "CLSI_M100_ED33"],
+              "dimension": "MIC",
+              "organism": "$organism",
+              "antibiotic": "$antibiotic",
+              "context": "$context.breakpoint_context",
+              "specimen": "$specimen_source",
+              "dose": "$dose_regimen"
+            }
+          },
+          "then": {
+            "classify_by_breakpoint": {
+              "value_field": "mic",
+              "dimension": "MIC",
+              "map_I_to": "I"
+            }
+          }
+        }
+      ],
+      "exceptions": [
+        {
+          "when": { "missing": { "field": "mic" } },
+          "set_classification": "REVIEW",
+          "message": "MIC value missing for MIC method."
+        }
+      ]
+    },
+    {
+      "id": "BP-002",
+      "name": "Generic disk diffusion zone-based evaluation",
+      "priority": 21,
+      "type": "breakpoint_evaluation",
+      "match": {
+        "method_in": ["DISK", "DISK_DIFFUSION"]
+      },
+      "logic": [
+        {
+          "if": {
+            "has_breakpoint": {
+              "source_precedence": ["LOCAL", "EUCAST_2024.1", "CLSI_M100_ED33"],
+              "dimension": "ZONE",
+              "organism": "$organism",
+              "antibiotic": "$antibiotic",
+              "context": "$context.breakpoint_context",
+              "specimen": "$specimen_source"
+            }
+          },
+          "then": {
+            "classify_by_breakpoint": {
+              "value_field": "zone",
+              "dimension": "ZONE",
+              "map_I_to": "I"
+            }
+          }
+        }
+      ],
+      "exceptions": [
+        {
+          "when": { "missing": { "field": "zone" } },
+          "set_classification": "REVIEW",
+          "message": "Zone diameter missing for disk diffusion method."
+        },
+        {
+          "when": { "in": { "field": "antibiotic", "set_ref": "Polymyxins" } },
+          "set_classification": "REVIEW",
+          "message": "Disk diffusion not valid for polymyxins."
+        }
+      ]
+    },
+    {
+      "id": "VAL-001",
+      "name": "Value plausibility checks",
+      "priority": 30,
+      "type": "validation",
+      "match": {},
+      "logic": [
+        {
+          "if": { "or": [
+            { "lt": { "field": "mic", "value": 0.002 } },
+            { "gt": { "field": "mic", "value": 1024 } },
+            { "lt": { "field": "zone", "value": 6 } },
+            { "gt": { "field": "zone", "value": 50 } }
+          ] },
+          "then": { "classification": "REVIEW", "message": "Value out of plausible range for MIC/zone." }
+        }
+      ],
+      "exceptions": []
+    },
+    {
+      "id": "FALL-001",
+      "name": "Fallback when no breakpoint found",
+      "priority": 100,
+      "type": "fallback",
+      "match": {},
+      "logic": [
+        {
+          "if": { "always": true },
+          "then": { "classification": "REVIEW", "message": "No applicable breakpoint; requires clinical microbiologist review." }
+        }
+      ],
+      "exceptions": []
+    }
+  ],
+  "examples": {
+    "inputs": [
+      {
+        "organism": { "genus": "Escherichia", "species": "coli" },
+        "antibiotic": "ciprofloxacin",
+        "method": "MIC",
+        "mic": 0.5,
+        "zone": null,
+        "specimen_source": "urine",
+        "infection_site": "UTI",
+        "phenotype_flags": [],
+        "co_results": {},
+        "dose_regimen": "standard"
+      },
+      {
+        "organism": { "genus": "Klebsiella", "species": "pneumoniae" },
+        "antibiotic": "ampicillin",
+        "method": "MIC",
+        "mic": 8,
+        "specimen_source": "blood",
+        "phenotype_flags": [],
+        "co_results": {}
+      },
+      {
+        "organism": { "genus": "Staphylococcus", "species": "aureus" },
+        "antibiotic": "clindamycin",
+        "method": "DISK",
+        "zone": 24,
+        "specimen_source": "wound",
+        "phenotype_flags": { "D_test": "positive" },
+        "co_results": { "erythromycin": { "category": "R" }, "clindamycin": { "category": "S" } }
+      },
+      {
+        "organism": { "genus": "Streptococcus", "species": "pneumoniae" },
+        "antibiotic": "penicillin",
+        "method": "MIC",
+        "mic": 0.5,
+        "infection_site": "CNS",
+        "phenotype_flags": {}
+      },
+      {
+        "organism": { "genus": "Pseudomonas", "species": "aeruginosa" },
+        "antibiotic": "ceftriaxone",
+        "method": "MIC",
+        "mic": 1,
+        "phenotype_flags": {}
+      }
+    ],
+    "expected_behavior": [
+      "Ciprofloxacin E. coli MIC classified by library (EUCAST/CLSI).",
+      "Klebsiella vs ampicillin set to R by intrinsic rule regardless of MIC.",
+      "Clindamycin S. aureus with positive D-test set to R.",
+      "S. pneumoniae penicillin uses meningitis breakpoints (otherwise REVIEW if site missing).",
+      "P. aeruginosa vs ceftriaxone set to R by intrinsic rule."
+    ]
+  },
+  "field_mapping_notes": {
+    "organism": "Map input organism to genus/species via SNOMED or local dictionary before rule evaluation.",
+    "antibiotic": "Normalize drug names/codes (RxNorm/ATC/local) to canonical display name used in rules.",
+    "method": "Accepted values: MIC, MIC_BMD, BMD, DISK, DISK_DIFFUSION.",
+    "phenotype_flags": "Set from instrument/middleware or lab workflows (e.g., ESBL_positive, AmpC_derepressed, mecA_positive, D_test).",
+    "dose_regimen": "Optional; used by guidelines with dose-dependent breakpoints.",
+    "context.breakpoint_context": "Internal transient selected by site-specific rules (e.g., meningitis vs non-meningitis)."
+  }
+}
+

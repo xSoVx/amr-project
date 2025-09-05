@@ -1,0 +1,23 @@
+version: '3.8'
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: amr-engine:latest
+    environment:
+      - AMR_RULES_PATH=amr_engine/rules/eucast_v_2025_1.yaml
+      - ADMIN_TOKEN=change-me
+      - LOG_LEVEL=INFO
+    ports:
+      - "8080:8080"
+  tests:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: amr-engine:latest
+    command: ["pytest", "-q", "--maxfail=1", "--disable-warnings"]
+    environment:
+      - AMR_RULES_PATH=amr_engine/rules/eucast_v_2025_1.yaml
+      - ADMIN_TOKEN=change-me
+

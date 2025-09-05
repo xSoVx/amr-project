@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://amr.example.org/schemas/rules.schema.json",
+  "title": "AMR Rules Schema",
+  "type": "object",
+  "properties": {
+    "version": { "type": "string" },
+    "rules": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["organism", "antibiotic", "method"],
+        "properties": {
+          "organism": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "snomed": { "type": "string" }
+            },
+            "required": ["name"]
+          },
+          "antibiotic": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "atc": { "type": "string" }
+            },
+            "required": ["name"]
+          },
+          "method": { "type": "string", "enum": ["MIC", "DISC"] },
+          "mic": {
+            "type": "object",
+            "properties": {
+              "susceptible_max": { "type": "number" },
+              "intermediate_range": {
+                "type": "array",
+                "items": { "type": "number" },
+                "minItems": 2,
+                "maxItems": 2
+              },
+              "resistant_min": { "type": "number" }
+            },
+            "additionalProperties": false
+          },
+          "disc": {
+            "type": "object",
+            "properties": {
+              "susceptible_min_zone_mm": { "type": "number" },
+              "intermediate_range_zone_mm": {
+                "type": "array",
+                "items": { "type": "number" },
+                "minItems": 2,
+                "maxItems": 2
+              },
+              "resistant_max_zone_mm": { "type": "number" }
+            },
+            "additionalProperties": false
+          },
+          "exceptions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "when", "action"],
+              "properties": {
+                "id": { "type": "string" },
+                "when": { "type": "string" },
+                "action": { "type": "string", "enum": ["RR"] },
+                "note": { "type": "string" }
+              },
+              "additionalProperties": false
+            }
+          },
+          "version": { "type": "string" },
+          "notes": { "type": "string" }
+        },
+        "allOf": [
+          {
+            "if": { "properties": { "method": { "const": "MIC" } } },
+            "then": { "required": ["mic"] }
+          },
+          {
+            "if": { "properties": { "method": { "const": "DISC" } } },
+            "then": { "required": ["disc"] }
+          }
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["rules"],
+  "additionalProperties": false
+}
+

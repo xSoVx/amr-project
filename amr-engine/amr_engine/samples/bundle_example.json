@@ -1,0 +1,37 @@
+{
+  "resourceType": "Bundle",
+  "type": "collection",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "18906-8",
+              "display": "Ciprofloxacin [Susceptibility]"
+            }
+          ]
+        },
+        "valueQuantity": { "value": 0.25, "unit": "mg/L" },
+        "method": { "coding": [{ "code": "MIC" }] },
+        "specimen": { "reference": "Specimen/1" },
+        "subject": { "reference": "Patient/123" },
+        "note": [{ "text": "Escherichia coli; ESBL=false" }]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "code": { "text": "Ciprofloxacin [Susceptibility] by disk diffusion" },
+        "valueQuantity": { "value": 24, "unit": "mm" },
+        "method": { "text": "DISC" },
+        "specimen": { "reference": "Specimen/2" },
+        "subject": { "reference": "Patient/123" },
+        "note": [{ "text": "Escherichia coli" }]
+      }
+    }
+  ]
+}
+

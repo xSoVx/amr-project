@@ -1,0 +1,10 @@
+{
+  "resourceType": "Observation",
+  "code": { "coding": [{ "system": "http://loinc.org", "code": "18906-8", "display": "Ciprofloxacin [Susceptibility]" }] },
+  "valueQuantity": { "value": 0.25, "unit": "mg/L" },
+  "method": { "coding": [{ "code": "MIC" }] },
+  "specimen": { "reference": "Specimen/1" },
+  "subject": { "reference": "Patient/123" },
+  "note": [{ "text": "Escherichia coli; ESBL=false" }]
+}
+

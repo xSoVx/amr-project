@@ -1,0 +1,59 @@
+version: "EUCAST-2025.1"
+rules:
+  - organism:
+      name: "Escherichia coli"
+      snomed: "112283007"
+    antibiotic:
+      name: "Ciprofloxacin"
+      atc: "J01MA02"
+    method: "MIC"
+    mic:
+      susceptible_max: 0.25
+      intermediate_range: [0.5, 1.0]
+      resistant_min: 2.0
+    exceptions:
+      - id: "esbl_suspected"
+        when: "organism.features.esbl == true"
+        action: "RR"
+        note: "ESBL suspicion triggers manual review"
+    version: "EUCAST-2025.1"
+
+  - organism:
+      name: "Escherichia coli"
+      snomed: "112283007"
+    antibiotic:
+      name: "Ciprofloxacin"
+      atc: "J01MA02"
+    method: "DISC"
+    disc:
+      susceptible_min_zone_mm: 26
+      intermediate_range_zone_mm: [22, 25]
+      resistant_max_zone_mm: 21
+    version: "EUCAST-2025.1"
+
+  - organism:
+      name: "Staphylococcus aureus"
+      snomed: "3092008"
+    antibiotic:
+      name: "Oxacillin"
+      atc: "J01CF04"
+    method: "MIC"
+    mic:
+      susceptible_max: 0.25
+      intermediate_range: [0.5, 1.0]
+      resistant_min: 2.0
+    version: "EUCAST-2025.1"
+
+  - organism:
+      name: "Pseudomonas aeruginosa"
+      snomed: "9875009"
+    antibiotic:
+      name: "Piperacillin-tazobactam"
+      atc: "J01CR05"
+    method: "DISC"
+    disc:
+      susceptible_min_zone_mm: 21
+      intermediate_range_zone_mm: [18, 20]
+      resistant_max_zone_mm: 17
+    version: "EUCAST-2025.1"
+

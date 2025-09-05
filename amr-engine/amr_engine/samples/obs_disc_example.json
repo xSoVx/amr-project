@@ -1,0 +1,10 @@
+{
+  "resourceType": "Observation",
+  "code": { "text": "Ciprofloxacin [Susceptibility] by disk diffusion" },
+  "valueQuantity": { "value": 24, "unit": "mm" },
+  "method": { "text": "DISC" },
+  "specimen": { "reference": "Specimen/2" },
+  "subject": { "reference": "Patient/123" },
+  "note": [{ "text": "Escherichia coli" }]
+}
+
