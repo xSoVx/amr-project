@@ -13,6 +13,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
+from typing_extensions import Literal
 
 
 class AuditEventAction(str, Enum):
@@ -66,7 +67,7 @@ class FHIRAuditEvent(BaseModel):
     Tracks access, transforms, classification events, and rule version usage
     as recommended for AMR system auditability.
     """
-    resourceType: str = Field(default="AuditEvent", const=True)
+    resourceType: Literal["AuditEvent"] = Field(default="AuditEvent")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     meta: Dict[str, Any] = Field(default_factory=dict)
     

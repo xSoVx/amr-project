@@ -17,6 +17,7 @@ from urllib.parse import urlparse
 
 import httpx
 from pydantic import BaseModel, Field, validator
+from typing_extensions import Literal
 
 from .audit import AMRAuditLogger, AuditEventOutcome
 from .errors import (

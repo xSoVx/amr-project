@@ -7,7 +7,24 @@ from .reasoning import disc_reason, mic_reason
 from .rules_loader import Rule, RulesLoader
 from .schemas import ClassificationInput, ClassificationResult
 from .expert_rules import expert_rule_engine
-from .tracing import get_tracer
+try:
+    from .tracing import get_tracer
+    HAS_TRACING = True
+except ImportError:
+    HAS_TRACING = False
+    def get_tracer():
+        class DummyTracer:
+            def trace_classification(self):
+                def decorator(func): return func
+                return decorator
+            def add_span_attributes(self, **kwargs): pass
+            def start_span(self, *args, **kwargs): 
+                from contextlib import nullcontext
+                return nullcontext()
+            def trace_rule_evaluation(self, *args, **kwargs):
+                from contextlib import nullcontext
+                return nullcontext()
+        return DummyTracer()
 
 logger = logging.getLogger(__name__)
 

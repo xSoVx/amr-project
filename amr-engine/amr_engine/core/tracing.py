@@ -18,7 +18,11 @@ from opentelemetry import baggage, trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
-from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
+try:
+    from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
+    HAS_SQLALCHEMY = True
+except ImportError:
+    HAS_SQLALCHEMY = False
 from opentelemetry.propagators.b3 import B3MultiFormat
 from opentelemetry.propagators.jaeger import JaegerPropagator
 from opentelemetry.propagators.textmap import CompositePropagator
@@ -117,6 +121,10 @@ class AMRTracing:
     
     def instrument_sqlalchemy(self, engine=None):
         """Instrument SQLAlchemy for database tracing."""
+        if not HAS_SQLALCHEMY:
+            logger.warning("SQLAlchemy not available, skipping instrumentation")
+            return
+            
         try:
             SQLAlchemyInstrumentor().instrument(
                 engine=engine,

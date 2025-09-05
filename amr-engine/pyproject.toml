@@ -31,7 +31,8 @@ dependencies = [
   "opentelemetry-instrumentation-sqlalchemy==0.41b0",
   "opentelemetry-propagator-b3==1.20.0",
   "opentelemetry-propagator-jaeger==1.20.0",
-  "opentelemetry-semantic-conventions==0.41b0"
+  "opentelemetry-semantic-conventions==0.41b0",
+  "sqlalchemy==2.0.23"
 ]
 
 [project.optional-dependencies]

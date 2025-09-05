@@ -10,7 +10,14 @@ from fastapi.responses import JSONResponse
 from .api.routes import router
 from .config import get_settings
 from .core.exceptions import FHIRValidationError, RulesValidationError
-from .core.tracing import init_tracing, get_tracer
+try:
+    from .core.tracing import init_tracing, get_tracer
+    HAS_TRACING = True
+except ImportError as e:
+    logger.warning(f"Tracing module not available: {e}")
+    HAS_TRACING = False
+    def init_tracing(*args, **kwargs): return None
+    def get_tracer(): return None
 from .logging_setup import setup_logging
 
 
@@ -18,13 +25,15 @@ def create_app() -> FastAPI:
     setup_logging()
     settings = get_settings()
     
-    # Initialize OpenTelemetry tracing
-    tracing = init_tracing(
-        service_name=getattr(settings, 'SERVICE_NAME', 'amr-engine'),
-        service_version="0.1.0",
-        otlp_endpoint=os.getenv('OTEL_EXPORTER_OTLP_ENDPOINT'),
-        sample_rate=float(os.getenv('OTEL_TRACE_SAMPLE_RATE', '1.0'))
-    )
+    # Initialize OpenTelemetry tracing if available
+    tracing = None
+    if HAS_TRACING:
+        tracing = init_tracing(
+            service_name=getattr(settings, 'SERVICE_NAME', 'amr-engine'),
+            service_version="0.1.0",
+            otlp_endpoint=os.getenv('OTEL_EXPORTER_OTLP_ENDPOINT'),
+            sample_rate=float(os.getenv('OTEL_TRACE_SAMPLE_RATE', '1.0'))
+        )
     
     app = FastAPI(
         title="AMR Classification Engine",
@@ -97,9 +106,10 @@ def create_app() -> FastAPI:
     async def fhir_error_handler(request: Request, exc: FHIRValidationError):
         return JSONResponse(status_code=400, content={"resourceType": "OperationOutcome", "issue": exc.issues or [{"severity": "error", "diagnostics": exc.detail}]})
 
-    # Instrument FastAPI with tracing
-    tracing.instrument_fastapi(app)
-    tracing.instrument_requests()
+    # Instrument FastAPI with tracing if available
+    if tracing:
+        tracing.instrument_fastapi(app)
+        tracing.instrument_requests()
     
     app.include_router(router)
     return app

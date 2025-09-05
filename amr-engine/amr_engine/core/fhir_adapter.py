@@ -7,7 +7,17 @@ from .exceptions import FHIRValidationError
 from .schemas import ClassificationInput
 from .fhir_resources import FHIRValidator, FHIRResourceExtractor
 from .terminology import terminology_service
-from .tracing import get_tracer
+try:
+    from .tracing import get_tracer
+    HAS_TRACING = True
+except ImportError:
+    HAS_TRACING = False
+    def get_tracer():
+        class DummyTracer:
+            def trace_fhir_operation(self, **kwargs):
+                def decorator(func): return func
+                return decorator
+        return DummyTracer()
 
 logger = logging.getLogger(__name__)
 
