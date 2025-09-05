@@ -13,9 +13,11 @@ from .core.exceptions import FHIRValidationError, RulesValidationError
 try:
     from .core.tracing import init_tracing, get_tracer
     HAS_TRACING = True
+    TRACING_ERROR = None
 except ImportError as e:
-    logger.warning(f"Tracing module not available: {e}")
+    # Note: logger not yet available, will warn in create_app
     HAS_TRACING = False
+    TRACING_ERROR = str(e)
     def init_tracing(*args, **kwargs): return None
     def get_tracer(): return None
 from .logging_setup import setup_logging
@@ -23,6 +25,7 @@ from .logging_setup import setup_logging
 
 def create_app() -> FastAPI:
     setup_logging()
+    logger = logging.getLogger(__name__)
     settings = get_settings()
     
     # Initialize OpenTelemetry tracing if available
@@ -34,6 +37,8 @@ def create_app() -> FastAPI:
             otlp_endpoint=os.getenv('OTEL_EXPORTER_OTLP_ENDPOINT'),
             sample_rate=float(os.getenv('OTEL_TRACE_SAMPLE_RATE', '1.0'))
         )
+    else:
+        logger.warning(f"OpenTelemetry tracing not available: {TRACING_ERROR}")
     
     app = FastAPI(
         title="AMR Classification Engine",

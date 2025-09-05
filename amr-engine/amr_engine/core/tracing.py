@@ -25,7 +25,13 @@ except ImportError:
     HAS_SQLALCHEMY = False
 from opentelemetry.propagators.b3 import B3MultiFormat
 from opentelemetry.propagators.jaeger import JaegerPropagator
-from opentelemetry.propagators.textmap import CompositePropagator
+try:
+    from opentelemetry.propagators.composite import CompositePropagator
+except ImportError:
+    try:
+        from opentelemetry.propagators.textmap import CompositePropagator
+    except ImportError:
+        CompositePropagator = None
 from opentelemetry.sdk.resources import SERVICE_NAME, SERVICE_VERSION, Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
@@ -93,12 +99,13 @@ class AMRTracing:
         trace.set_tracer_provider(provider)
         
         # Configure propagators for cross-service tracing
-        composite_propagator = CompositePropagator([
-            B3MultiFormat(),
-            JaegerPropagator()
-        ])
-        # Note: Would normally use trace.set_global_textmap(composite_propagator)
-        # but keeping simple for now
+        if CompositePropagator:
+            composite_propagator = CompositePropagator([
+                B3MultiFormat(),
+                JaegerPropagator()
+            ])
+            # Note: Would normally use trace.set_global_textmap(composite_propagator)
+            # but keeping simple for now
     
     def instrument_fastapi(self, app):
         """Instrument FastAPI application for automatic tracing."""
