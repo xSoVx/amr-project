@@ -1,4 +1,4 @@
-FROM python:3.11-slim@sha256:88d952f5a7eecaa04d3d0d457f7d4e3a0bc940fb0f2dbf3f1483e8d6e8c9226b
+FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -12,11 +12,11 @@ RUN adduser --disabled-password --gecos '' appuser \
 
 WORKDIR /app
 
-COPY amr-engine/pyproject.toml ./pyproject.toml
-COPY amr-engine/README.md ./README.md
-COPY amr-engine/LICENSE ./LICENSE
-COPY amr-engine/amr_engine ./amr_engine
-COPY amr-engine/.env.example .env.example || true
+COPY pyproject.toml ./pyproject.toml
+COPY README.md ./README.md
+COPY LICENSE ./LICENSE
+COPY amr_engine ./amr_engine
+COPY .env.example .env.example
 
 RUN pip install --upgrade pip \
     && pip install . \

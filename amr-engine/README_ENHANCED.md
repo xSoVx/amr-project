@@ -1,7 +1,7 @@
 # Enhanced AMR Engine - Full Specification Implementation
 
 ## Overview
-
+ים' אם רומ 
 The Enhanced AMR Engine is a comprehensive Antimicrobial Resistance (AMR) classification microservice that fully implements the specification requirements. It provides end-to-end AMR workflows including FHIR R4/HL7v2 data processing, advanced expert rules, surveillance analytics, multi-site support, and MoH reporting.
 
 ## 🆕 Major Enhancements Added
