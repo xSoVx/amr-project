@@ -334,6 +334,158 @@ def rules_reload(_: None = Depends(admin_auth)) -> dict:
     return {"status": "ok", "sources": loader.ruleset.sources if loader.ruleset else []}
 
 
+@router.post(
+    "/classify/fhir",
+    response_model=list[ClassificationResult],
+    tags=["classification"],
+    summary="Classify FHIR Bundle/Observations",
+    description="""
+    **Dedicated FHIR R4 Processing**
+    
+    Processes FHIR R4 Bundles or arrays of Observation resources containing
+    antimicrobial susceptibility test results.
+    
+    ### Supported FHIR Resources:
+    - **Bundle**: FHIR Bundle containing Observation resources
+    - **Observation Array**: Array of FHIR Observation resources
+    - **Single Observation**: Single FHIR Observation resource
+    
+    ### FHIR Observation Requirements:
+    - **code**: Must contain antimicrobial susceptibility test codes
+    - **subject**: Patient reference (optional)
+    - **specimen**: Specimen reference (optional)
+    - **valueQuantity**: MIC value with units
+    - **component**: For organism identification and other metadata
+    
+    ### Example FHIR Bundle:
+    ```json
+    {
+      "resourceType": "Bundle",
+      "type": "collection",
+      "entry": [
+        {
+          "resource": {
+            "resourceType": "Observation",
+            "status": "final",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://loinc.org",
+                  "code": "87181-4",
+                  "display": "Amoxicillin [Susceptibility]"
+                }
+              ]
+            },
+            "subject": {
+              "reference": "Patient/123"
+            },
+            "valueQuantity": {
+              "value": 4.0,
+              "unit": "mg/L"
+            },
+            "component": [
+              {
+                "code": {
+                  "coding": [
+                    {
+                      "system": "http://snomed.info/sct",
+                      "code": "264395009",
+                      "display": "Microorganism"
+                    }
+                  ]
+                },
+                "valueCodeableConcept": {
+                  "coding": [
+                    {
+                      "system": "http://snomed.info/sct", 
+                      "code": "112283007",
+                      "display": "Escherichia coli"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+    ```
+    """,
+    response_description="Extracted and classified AMR results from FHIR data",
+    responses={
+        200: {
+            "description": "Successful FHIR processing and classification",
+            "content": {
+                "application/json": {
+                    "example": [{
+                        "specimenId": "Bundle-123",
+                        "organism": "Escherichia coli",
+                        "antibiotic": "Amoxicillin",
+                        "method": "MIC",
+                        "input": {
+                            "organism": "Escherichia coli",
+                            "antibiotic": "Amoxicillin",
+                            "method": "MIC",
+                            "mic_mg_L": 4.0,
+                            "specimenId": "Bundle-123"
+                        },
+                        "decision": "S",
+                        "reason": "MIC 4.0 mg/L <= breakpoint 8.0 mg/L",
+                        "ruleVersion": "EUCAST v2025.1"
+                    }]
+                }
+            }
+        },
+        400: {
+            "description": "Invalid FHIR format or missing required elements",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": {
+                            "resourceType": "OperationOutcome",
+                            "issue": [{
+                                "severity": "error",
+                                "code": "invalid",
+                                "diagnostics": "FHIR parsing error: Missing Observation resources"
+                            }]
+                        }
+                    }
+                }
+            }
+        }
+    }
+)
+async def classify_fhir(request: Request, payload: Any) -> List[ClassificationResult]:
+    """
+    Dedicated endpoint for FHIR Bundle and Observation processing.
+    
+    Parses FHIR R4 resources and extracts antimicrobial susceptibility
+    test results for classification.
+    """
+    loader = RulesLoader()
+    classifier = Classifier(loader)
+    
+    try:
+        # Force FHIR parsing by calling parse_bundle_or_observations directly
+        inputs = await parse_bundle_or_observations(payload)
+    except Exception as e:
+        issues = [
+            {"severity": "error", "code": "invalid", "diagnostics": f"FHIR parsing error: {str(e)}"},
+        ]
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=OperationOutcome(issue=issues).model_dump(),
+        )
+    
+    results: List[ClassificationResult] = []
+    for item in inputs:
+        res = classifier.classify(item)
+        CLASSIFICATIONS.labels(res.decision).inc()
+        results.append(res)
+    
+    return results
+
+
 async def _parse_input(payload: Any, request: Request) -> List[ClassificationInput]:
     """Parse input data from various formats (FHIR, HL7v2)."""
     # Check Content-Type header to determine format
