@@ -9,6 +9,8 @@
 
 **Enterprise-ready microservice** for **Antimicrobial Resistance (AMR) classification** with comprehensive observability, audit logging, and multi-profile FHIR validation. Supports FHIR R4 Bundles, HL7v2 messages, and direct JSON input with EUCAST/CLSI-style rules, returning S/I/R/RR decisions with detailed reasoning and full compliance tracking.
 
+> **⚠️ DISCLAIMER**: This is open-source software provided "AS IS" without warranty of any kind. This software is intended for research and educational purposes only. It should not be used for clinical decision-making or patient care without proper validation, regulatory approval, and oversight by qualified healthcare professionals. Users are solely responsible for ensuring compliance with applicable regulations and guidelines in their jurisdiction.
+
 ## 🚀 Quick Start
 
 ### Local Development
@@ -405,7 +407,44 @@ spec:
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
+## ⚖️ Legal Disclaimer & Limitations
+
+### Open Source Software Notice
+This AMR Classification Engine is **open-source software** released under the MIT License. It is provided free of charge for research, educational, and development purposes.
+
+### Medical Device and Clinical Use Warning
+> **🚨 IMPORTANT**: This software is **NOT** a medical device and has **NOT** been approved by any regulatory authority (FDA, CE, Health Canada, TGA, etc.) for clinical use. 
+
+#### Restrictions:
+- **❌ Not for clinical decision-making**: Do not use for patient diagnosis, treatment decisions, or clinical care
+- **❌ Not for production healthcare systems**: Requires validation and regulatory approval before clinical deployment  
+- **❌ No medical liability coverage**: Authors and contributors assume no responsibility for medical outcomes
+- **❌ No accuracy guarantees**: Classification results may contain errors and require expert review
+
+#### Intended Use:
+- ✅ **Research and development** of AMR classification systems
+- ✅ **Educational purposes** for understanding FHIR, HL7v2, and AMR guidelines
+- ✅ **Software development** and integration testing
+- ✅ **Academic research** with proper validation and oversight
+
+### Regulatory Compliance
+Users deploying this software must ensure compliance with:
+- Local healthcare regulations and data protection laws
+- Medical device regulations if used in clinical settings
+- Laboratory information system requirements
+- HIPAA, GDPR, or equivalent data privacy regulations
+- Institutional review board (IRB) approval for research use
+
+### Professional Responsibility
+Healthcare professionals using this software must:
+- Validate all results against established laboratory procedures
+- Maintain appropriate quality control measures
+- Follow institutional protocols for antimicrobial resistance testing
+- Ensure proper oversight by qualified microbiologists or infectious disease specialists
+
 ## 📄 License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
+
+**MIT License Summary**: This software is provided "AS IS", without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose and noninfringement.
 
