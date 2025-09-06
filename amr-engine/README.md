@@ -1,11 +1,13 @@
 # AMR Classification Engine
 
+[![Version](https://img.shields.io/badge/version-0.1.0-brightgreen.svg)](https://github.com/your-org/amr-engine/releases)
 [![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=flat&logo=fastapi)](https://fastapi.tiangolo.com/)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/)
 [![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=flat&logo=docker&logoColor=white)](https://www.docker.com/)
 [![OpenTelemetry](https://img.shields.io/badge/OpenTelemetry-4285F4?style=flat&logo=opentelemetry&logoColor=white)](https://opentelemetry.io/)
 [![Prometheus](https://img.shields.io/badge/Prometheus-E6522C?style=flat&logo=prometheus&logoColor=white)](https://prometheus.io/)
 [![FHIR R4](https://img.shields.io/badge/FHIR_R4-326CE5?style=flat&logo=hl7&logoColor=white)](https://hl7.org/fhir/)
+[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 **Enterprise-ready microservice** for **Antimicrobial Resistance (AMR) classification** with comprehensive observability, audit logging, and multi-profile FHIR validation. Supports FHIR R4 Bundles, HL7v2 messages, and direct JSON input with EUCAST/CLSI-style rules, returning S/I/R/RR decisions with detailed reasoning and full compliance tracking.
 
