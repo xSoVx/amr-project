@@ -1,6 +1,6 @@
 # AMR Classification Engine
 
-[![Version](https://img.shields.io/badge/version-0.1.0-brightgreen.svg)](https://github.com/your-org/amr-engine/releases)
+[![Version](https://img.shields.io/badge/version-0.2.0-brightgreen.svg)](https://github.com/your-org/amr-engine/releases)
 [![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=flat&logo=fastapi)](https://fastapi.tiangolo.com/)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/)
 [![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=flat&logo=docker&logoColor=white)](https://www.docker.com/)
@@ -10,6 +10,32 @@
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 **Enterprise-ready microservice** for **Antimicrobial Resistance (AMR) classification** with comprehensive observability, audit logging, and multi-profile FHIR validation. Supports FHIR R4 Bundles, HL7v2 messages, and direct JSON input with EUCAST/CLSI-style rules, returning S/I/R/RR decisions with detailed reasoning and full compliance tracking.
+
+## 🆕 Latest Updates (v0.2.0)
+
+### 🔒 **Enhanced Security & Authentication**
+- **OAuth2 Bearer Authentication** - JWKS-based JWT validation with fallback to legacy tokens
+- **Mutual TLS (mTLS)** - Client certificate authentication with CA validation
+- **RFC 7807 Error Responses** - Standardized Problem Details with embedded FHIR OperationOutcome
+- **PII Redaction** - Automatic patient/specimen identifier redaction in structured logs
+
+### 🏥 **Improved Clinical Decision Support**
+- **Enhanced Missing Value Handling** - Disc diffusion missing values now return "Requires Review" instead of "RR"
+- **Runtime FHIR Profile Selection** - Dynamic switching between IL-Core, US-Core, IPS, and Base profiles
+- **Conflicting Result Detection** - Advanced testing for MIC vs disk diffusion discrepancies
+- **MRSA β-lactam Override Rules** - Comprehensive resistance override testing
+
+### ☸️ **Production-Ready Kubernetes Deployment**
+- **Comprehensive K8s Manifests** - Complete deployment, service, RBAC, and security configurations
+- **Non-root Security Context** - Enhanced container security with restricted permissions
+- **Horizontal Pod Autoscaler** - CPU/memory-based automatic scaling
+- **Network Policies** - Micro-segmentation and traffic control
+- **Enhanced Health Checks** - Separate `/health` and `/ready` endpoints for better orchestration
+
+### 📊 **Enterprise Monitoring & Compliance**
+- **Golden Dataset Testing** - ≥80% coverage enforcement across organisms, antibiotics, and decision types
+- **Advanced Test Coverage** - Comprehensive validation scenarios including edge cases and conflicts
+- **Enhanced Observability** - Improved tracing and metrics for production monitoring
 
 > **⚠️ DISCLAIMER**: This is open-source software provided "AS IS" without warranty of any kind. This software is intended for research and educational purposes only. It should not be used for clinical decision-making or patient care without proper validation, regulatory approval, and oversight by qualified healthcare professionals. Users are solely responsible for ensuring compliance with applicable regulations and guidelines in their jurisdiction.
 
@@ -50,7 +76,9 @@ docker-compose -f docker/docker-compose.observability.yml up --build
 ### API Endpoints
 
 #### 🩺 Health & Monitoring
-- `GET /healthz` - Health check endpoint
+- `GET /health` - **Primary health check endpoint**
+- `GET /ready` - **Readiness check endpoint** (validates service can handle requests)
+- `GET /healthz` - Legacy health check endpoint (backward compatibility)
 - `GET /version` - Service version information
 - `GET /metrics` - Prometheus metrics
 
@@ -79,7 +107,7 @@ docker-compose -f docker/docker-compose.observability.yml up --build
 
 #### ⚙️ Administration
 - `POST /admin/rules/reload` - Reload classification rules
-  - Requires `X-Admin-Token` header
+  - Supports OAuth2 Bearer tokens and legacy `X-Admin-Token` header
   - Hot-reload rules without service restart
 
 ## 💾 Input Formats
@@ -183,19 +211,37 @@ OBX|2|NM|MIC^Amoxicillin MIC||4.0|mg/L|||||F
 - **I** - Susceptible, increased exposure  
 - **R** - Resistant
 - **RR** - Resistant, rare resistance
+- **Requires Review** - Missing critical data requiring manual review
 
 ## 🧪 Testing
 
+### Comprehensive Test Suite
+
 ```bash
-# Run tests
+# Run all tests
 pytest -q --maxfail=1 --disable-warnings
 
-# Run with coverage
-pytest --cov=amr_engine --cov-report=html
+# Run with coverage (enforces ≥80% coverage)
+pytest --cov=amr_engine --cov-report=html --cov-fail-under=80
+
+# Run specific test categories
+pytest tests/test_disc_missing_values.py  # Missing disc values → 'Requires Review'
+pytest tests/test_conflicting_results.py  # MIC vs disk conflicts
+pytest tests/test_mrsa_betalactam_override.py  # MRSA β-lactam resistance
+pytest tests/test_golden_dataset.py  # Comprehensive golden dataset
 
 # Docker test container
 docker-compose -f docker/docker-compose.yml run tests
 ```
+
+### Test Coverage Areas
+- **Golden Dataset Testing** - Comprehensive coverage of organisms, antibiotics, and decision types
+- **Conflicting Results** - MIC vs disk diffusion result discrepancies
+- **MRSA β-lactam Override** - Resistance override rules for MRSA
+- **Missing Value Handling** - 'Requires Review' for missing disc zone diameters
+- **FHIR Profile Validation** - Multi-profile pack validation
+- **Error Response Format** - RFC 7807 ProblemDetails compliance
+- **Security Features** - OAuth2, mTLS, and PII redaction
 
 ## ⚙️ Configuration
 
@@ -207,6 +253,21 @@ ADMIN_TOKEN=change-me-in-production
 SERVICE_NAME=amr-engine
 LOG_LEVEL=INFO
 EUST_VER=EUCAST-2025.1
+
+# FHIR Profile Pack Configuration
+FHIR_PROFILE_PACK=Base  # Options: Base, IL-Core, US-Core, IPS
+FHIR_VALIDATION_ENABLED=true
+
+# OAuth2 Authentication (Optional)
+OAUTH2_ENABLED=false
+OAUTH2_ISSUER_URL=https://your-oauth-provider.com
+OAUTH2_AUDIENCE=amr-engine
+
+# mTLS Configuration (Optional)
+MTLS_ENABLED=false
+MTLS_CA_CERT_PATH=/etc/ssl/certs/ca.pem
+MTLS_CLIENT_CERT_PATH=/etc/ssl/certs/client.pem
+MTLS_CLIENT_KEY_PATH=/etc/ssl/private/client-key.pem
 
 # OpenTelemetry Tracing Configuration
 # OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:14268/api/traces
@@ -234,10 +295,14 @@ docker run -p 8080:8080 \
 
 ## 🔒 Security
 
+- **Enterprise Authentication** - OAuth2 Bearer tokens with JWKS validation
+- **Mutual TLS (mTLS)** - Optional client certificate authentication
+- **RFC 7807 Error Responses** - Standardized error format with embedded FHIR OperationOutcome
+- **PII Redaction** - Automatic redaction of patient/specimen identifiers in logs
+- **Non-root Security Context** - Container and Kubernetes pods run with restricted permissions
+- **Network Policies** - Kubernetes network isolation and traffic control
+- **Secrets Management** - Proper handling of certificates and tokens via Kubernetes secrets
 - **No secrets in repository** - All sensitive data via environment variables
-- **Non-root Docker user** - Container runs with restricted permissions
-- **Minimal dependencies** - Reduced attack surface
-- **Token-protected admin endpoints** - Secured rule reload functionality
 - **Input validation** - Comprehensive request validation and sanitization
 
 ## 🏗️ Enterprise Architecture
@@ -270,6 +335,7 @@ docker run -p 8080:8080 \
 - **IL-Core Support** - Israeli national FHIR implementation guide
 - **US-Core Support** - US national FHIR implementation guide  
 - **IPS Support** - International Patient Summary profiles
+- **Runtime Selection** - Dynamic profile pack switching via configuration
 - **Custom Profile Packs** - Support for organization-specific profiles
 - **Tenant-Specific Assignment** - Multi-tenant profile pack management
 - **Conflict Resolution** - Intelligent priority-based profile selection
@@ -335,48 +401,31 @@ View request flows through:
 
 ## 🚢 Deployment
 
-### Kubernetes Example
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: amr-engine
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: amr-engine
-  template:
-    metadata:
-      labels:
-        app: amr-engine
-    spec:
-      containers:
-      - name: amr-engine
-        image: amr-engine:latest
-        ports:
-        - containerPort: 8080
-        env:
-        - name: AMR_RULES_PATH
-          value: "amr_engine/rules/eucast_v_2025_1.yaml"
-        - name: ADMIN_TOKEN
-          valueFrom:
-            secretKeyRef:
-              name: amr-secrets
-              key: admin-token
-        livenessProbe:
-          httpGet:
-            path: /healthz
-            port: 8080
-          initialDelaySeconds: 30
-          periodSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /healthz
-            port: 8080
-          initialDelaySeconds: 5
-          periodSeconds: 5
+### Kubernetes Deployment
+
+Comprehensive Kubernetes manifests are provided in the `k8s/` directory:
+
+```bash
+# Deploy with all manifests
+kubectl apply -f k8s/
+
+# Individual components
+kubectl apply -f k8s/rbac.yaml
+kubectl apply -f k8s/configmap.yaml
+kubectl apply -f k8s/deployment.yaml
+kubectl apply -f k8s/service.yaml
+kubectl apply -f k8s/hpa.yaml
+kubectl apply -f k8s/networkpolicy.yaml
 ```
+
+**Key Features:**
+- **Non-root security context** with `runAsUser: 1001`
+- **Resource limits and requests** for optimal scheduling
+- **Enhanced health checks** using `/health` and `/ready` endpoints
+- **Horizontal Pod Autoscaler** for automatic scaling
+- **Network policies** for security isolation
+- **RBAC** with least-privilege service account
+- **ConfigMap and Secret management** for configuration
 
 ### Production Considerations
 
