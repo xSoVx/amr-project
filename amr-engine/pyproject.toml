@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "amr-engine"
-version = "0.1.0"
+version = "0.2.0"
 description = "AMR classification microservice (FastAPI, Python 3.11)"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -32,7 +32,9 @@ dependencies = [
   "opentelemetry-propagator-b3==1.20.0",
   "opentelemetry-propagator-jaeger==1.20.0",
   "opentelemetry-semantic-conventions==0.41b0",
-  "sqlalchemy==2.0.23"
+  "sqlalchemy==2.0.23",
+  "cryptography>=41.0.0",
+  "python-jose[cryptography]>=3.3.0"
 ]
 
 [project.optional-dependencies]

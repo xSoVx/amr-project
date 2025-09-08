@@ -7,17 +7,24 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PORT=8080
 
 RUN adduser --disabled-password --gecos '' appuser \
- && apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
+ && apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates \
+    gcc \
+    g++ \
+    libffi-dev \
+    libssl-dev \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 COPY pyproject.toml ./pyproject.toml
-COPY README.md ./README.md
 COPY LICENSE ./LICENSE
 COPY amr_engine ./amr_engine
+COPY rules ./rules
 COPY .env.example .env.example
 
+# Install Python dependencies
 RUN pip install --upgrade pip \
     && pip install . \
     && pip check
@@ -38,15 +45,21 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1
 
 RUN adduser --disabled-password --gecos '' appuser \
- && apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
+ && apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates \
+    gcc \
+    g++ \
+    libffi-dev \
+    libssl-dev \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 COPY pyproject.toml ./pyproject.toml
-COPY README.md ./README.md
 COPY LICENSE ./LICENSE
 COPY amr_engine ./amr_engine
+COPY rules ./rules
 COPY tests ./tests
 COPY .env.example .env.example
 
@@ -55,3 +68,5 @@ RUN pip install --upgrade pip \
     && pip check
 
 USER appuser
+
+CMD ["pytest", "-v", "--cov=amr_engine", "--cov-fail-under=80"]
