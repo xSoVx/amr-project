@@ -6,6 +6,7 @@ import json
 import pytest
 from pathlib import Path
 from typing import Dict, List, Any
+import os
 
 from amr_engine.core.classifier import Classifier
 from amr_engine.core.rules_loader import RulesLoader
@@ -30,220 +31,29 @@ class GoldenDatasetTester:
         # Expected minimum coverage percentages
         self.min_coverage_percent = 80
         
-        # Golden dataset - comprehensive test cases
-        self.golden_dataset = self._create_golden_dataset()
+        # Golden dataset - loaded from external files
+        self.golden_dataset = self._load_golden_dataset()
     
-    def _create_golden_dataset(self) -> List[Dict[str, Any]]:
-        """Create comprehensive golden dataset for AMR classification testing."""
-        return [
-            # Escherichia coli - MIC tests
-            {
-                "input": {
-                    "organism": "Escherichia coli",
-                    "antibiotic": "Ciprofloxacin", 
-                    "method": "MIC",
-                    "mic_mg_L": 0.25,
-                    "specimenId": "GOLD-001"
-                },
-                "expected": {
-                    "decision": "S",
-                    "organism": "Escherichia coli",
-                    "antibiotic": "Ciprofloxacin"
-                }
-            },
-            {
-                "input": {
-                    "organism": "Escherichia coli",
-                    "antibiotic": "Ciprofloxacin",
-                    "method": "MIC", 
-                    "mic_mg_L": 4.0,
-                    "specimenId": "GOLD-002"
-                },
-                "expected": {
-                    "decision": "R",
-                    "organism": "Escherichia coli",
-                    "antibiotic": "Ciprofloxacin"
-                }
-            },
+    def _load_golden_dataset(self) -> List[Dict[str, Any]]:
+        """Load golden dataset from external JSON files."""
+        test_dir = Path(__file__).parent
+        golden_data_dir = test_dir / "data_golden"
+        
+        all_tests = []
+        
+        # Load all JSON files from data_golden directory
+        for json_file in golden_data_dir.glob("*.json"):
+            try:
+                with open(json_file, 'r', encoding='utf-8') as f:
+                    file_tests = json.load(f)
+                    all_tests.extend(file_tests)
+            except Exception as e:
+                raise RuntimeError(f"Failed to load golden dataset from {json_file}: {e}")
+        
+        if not all_tests:
+            raise RuntimeError(f"No golden dataset files found in {golden_data_dir}")
             
-            # Escherichia coli - Disc tests
-            {
-                "input": {
-                    "organism": "Escherichia coli",
-                    "antibiotic": "Ampicillin",
-                    "method": "DISC",
-                    "disc_zone_mm": 20.0,
-                    "specimenId": "GOLD-003"
-                },
-                "expected": {
-                    "decision": ["S", "I"],  # Could be either depending on breakpoints
-                    "organism": "Escherichia coli",
-                    "antibiotic": "Ampicillin"
-                }
-            },
-            {
-                "input": {
-                    "organism": "Escherichia coli",
-                    "antibiotic": "Ampicillin",
-                    "method": "DISC",
-                    "disc_zone_mm": 10.0,
-                    "specimenId": "GOLD-004"
-                },
-                "expected": {
-                    "decision": "R",
-                    "organism": "Escherichia coli", 
-                    "antibiotic": "Ampicillin"
-                }
-            },
-            
-            # Staphylococcus aureus - MIC tests
-            {
-                "input": {
-                    "organism": "Staphylococcus aureus",
-                    "antibiotic": "Gentamicin",
-                    "method": "MIC",
-                    "mic_mg_L": 2.0,
-                    "specimenId": "GOLD-005"
-                },
-                "expected": {
-                    "decision": "S",
-                    "organism": "Staphylococcus aureus",
-                    "antibiotic": "Gentamicin"
-                }
-            },
-            
-            # MRSA with beta-lactam override
-            {
-                "input": {
-                    "organism": "Staphylococcus aureus",
-                    "antibiotic": "Penicillin",
-                    "method": "MIC",
-                    "mic_mg_L": 0.06,
-                    "specimenId": "GOLD-006",
-                    "features": {"mrsa": True}
-                },
-                "expected": {
-                    "decision": "R",  # Should be overridden to resistant
-                    "organism": "Staphylococcus aureus",
-                    "antibiotic": "Penicillin"
-                }
-            },
-            
-            # ESBL-positive organism
-            {
-                "input": {
-                    "organism": "Escherichia coli",
-                    "antibiotic": "Ceftriaxone", 
-                    "method": "MIC",
-                    "mic_mg_L": 1.0,
-                    "specimenId": "GOLD-007",
-                    "features": {"esbl": True}
-                },
-                "expected": {
-                    "decision": "RR",  # Should require review due to ESBL
-                    "organism": "Escherichia coli",
-                    "antibiotic": "Ceftriaxone"
-                }
-            },
-            
-            # Klebsiella pneumoniae
-            {
-                "input": {
-                    "organism": "Klebsiella pneumoniae",
-                    "antibiotic": "Meropenem",
-                    "method": "MIC",
-                    "mic_mg_L": 0.25,
-                    "specimenId": "GOLD-008"
-                },
-                "expected": {
-                    "decision": "S",
-                    "organism": "Klebsiella pneumoniae",
-                    "antibiotic": "Meropenem"
-                }
-            },
-            
-            # Pseudomonas aeruginosa
-            {
-                "input": {
-                    "organism": "Pseudomonas aeruginosa",
-                    "antibiotic": "Piperacillin",
-                    "method": "DISC",
-                    "disc_zone_mm": 25.0,
-                    "specimenId": "GOLD-009"
-                },
-                "expected": {
-                    "decision": ["S", "I"],
-                    "organism": "Pseudomonas aeruginosa",
-                    "antibiotic": "Piperacillin"
-                }
-            },
-            
-            # Missing values - should return 'Requires Review'
-            {
-                "input": {
-                    "organism": "Escherichia coli",
-                    "antibiotic": "Ciprofloxacin",
-                    "method": "DISC",
-                    "disc_zone_mm": None,
-                    "specimenId": "GOLD-010"
-                },
-                "expected": {
-                    "decision": "Requires Review",
-                    "organism": "Escherichia coli",
-                    "antibiotic": "Ciprofloxacin"
-                }
-            },
-            
-            # Borderline MIC values
-            {
-                "input": {
-                    "organism": "Escherichia coli",
-                    "antibiotic": "Amoxicillin",
-                    "method": "MIC", 
-                    "mic_mg_L": 8.0,  # Right at breakpoint
-                    "specimenId": "GOLD-011"
-                },
-                "expected": {
-                    "decision": ["S", "I", "R"],  # Could be any depending on exact breakpoint
-                    "organism": "Escherichia coli",
-                    "antibiotic": "Amoxicillin"
-                }
-            },
-            
-            # Vancomycin against MRSA (should not be overridden)
-            {
-                "input": {
-                    "organism": "Staphylococcus aureus",
-                    "antibiotic": "Vancomycin",
-                    "method": "MIC",
-                    "mic_mg_L": 1.0,
-                    "specimenId": "GOLD-012",
-                    "features": {"mrsa": True}
-                },
-                "expected": {
-                    "decision": "S",  # Vancomycin should not be auto-resistant
-                    "organism": "Staphylococcus aureus",
-                    "antibiotic": "Vancomycin"
-                }
-            },
-            
-            # Multiple features
-            {
-                "input": {
-                    "organism": "Klebsiella pneumoniae",
-                    "antibiotic": "Gentamicin",
-                    "method": "DISC",
-                    "disc_zone_mm": 16.0,
-                    "specimenId": "GOLD-013",
-                    "features": {"esbl": True, "carbapenemase": False}
-                },
-                "expected": {
-                    "decision": ["S", "I", "R", "RR"],
-                    "organism": "Klebsiella pneumoniae",
-                    "antibiotic": "Gentamicin"
-                }
-            }
-        ]
+        return all_tests
     
     def run_golden_dataset_tests(self) -> Dict[str, Any]:
         """Run all golden dataset tests and return results with coverage metrics."""

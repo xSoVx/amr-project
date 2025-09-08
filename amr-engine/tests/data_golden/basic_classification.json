@@ -1,0 +1,58 @@
+[
+  {
+    "input": {
+      "organism": "Escherichia coli",
+      "antibiotic": "Ciprofloxacin", 
+      "method": "MIC",
+      "mic_mg_L": 0.25,
+      "specimenId": "GOLD-001"
+    },
+    "expected": {
+      "decision": "S",
+      "organism": "Escherichia coli",
+      "antibiotic": "Ciprofloxacin"
+    }
+  },
+  {
+    "input": {
+      "organism": "Escherichia coli",
+      "antibiotic": "Ciprofloxacin",
+      "method": "MIC", 
+      "mic_mg_L": 4.0,
+      "specimenId": "GOLD-002"
+    },
+    "expected": {
+      "decision": "R",
+      "organism": "Escherichia coli",
+      "antibiotic": "Ciprofloxacin"
+    }
+  },
+  {
+    "input": {
+      "organism": "Escherichia coli",
+      "antibiotic": "Ampicillin",
+      "method": "DISC",
+      "disc_zone_mm": 20.0,
+      "specimenId": "GOLD-003"
+    },
+    "expected": {
+      "decision": ["S", "I"],
+      "organism": "Escherichia coli",
+      "antibiotic": "Ampicillin"
+    }
+  },
+  {
+    "input": {
+      "organism": "Escherichia coli",
+      "antibiotic": "Ampicillin",
+      "method": "DISC",
+      "disc_zone_mm": 10.0,
+      "specimenId": "GOLD-004"
+    },
+    "expected": {
+      "decision": "R",
+      "organism": "Escherichia coli", 
+      "antibiotic": "Ampicillin"
+    }
+  }
+]

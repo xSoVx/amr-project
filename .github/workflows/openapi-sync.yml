@@ -1,0 +1,84 @@
+name: Sync OpenAPI Specification
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'amr-engine/amr_engine/**/*.py'
+      - 'amr-engine/pyproject.toml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'amr-engine/amr_engine/**/*.py' 
+      - 'amr-engine/pyproject.toml'
+
+jobs:
+  generate-openapi:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      working-directory: ./amr-engine
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+        
+    - name: Generate OpenAPI spec
+      working-directory: ./amr-engine
+      run: |
+        python -c "
+from amr_engine.main import app
+import yaml
+import json
+
+# Generate OpenAPI JSON
+openapi_schema = app.openapi()
+
+# Save as YAML
+with open('openapi.yaml', 'w') as f:
+    yaml.dump(openapi_schema, f, default_flow_style=False, sort_keys=False)
+
+# Save as JSON for comparison
+with open('openapi.json', 'w') as f:
+    json.dump(openapi_schema, f, indent=2)
+        "
+        
+    - name: Check for changes
+      id: verify-changed-files
+      run: |
+        if [ -n "$(git status --porcelain amr-engine/openapi.yaml)" ]; then
+          echo "changed=true" >> $GITHUB_OUTPUT
+        else
+          echo "changed=false" >> $GITHUB_OUTPUT
+        fi
+        
+    - name: Commit updated OpenAPI spec
+      if: steps.verify-changed-files.outputs.changed == 'true'
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add amr-engine/openapi.yaml amr-engine/openapi.json
+        git commit -m "Update OpenAPI specification [skip ci]" || exit 0
+        
+    - name: Push changes
+      if: steps.verify-changed-files.outputs.changed == 'true' && github.event_name == 'push'
+      uses: ad-m/github-push-action@master
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        branch: ${{ github.ref }}
+        
+    - name: Upload OpenAPI artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: openapi-spec
+        path: |
+          amr-engine/openapi.yaml
+          amr-engine/openapi.json
+        retention-days: 30

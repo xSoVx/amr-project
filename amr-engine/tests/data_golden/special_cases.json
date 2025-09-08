@@ -1,0 +1,88 @@
+[
+  {
+    "input": {
+      "organism": "Escherichia coli",
+      "antibiotic": "Ceftriaxone", 
+      "method": "MIC",
+      "mic_mg_L": 1.0,
+      "specimenId": "GOLD-007",
+      "features": {"esbl": true}
+    },
+    "expected": {
+      "decision": "RR",
+      "organism": "Escherichia coli",
+      "antibiotic": "Ceftriaxone"
+    }
+  },
+  {
+    "input": {
+      "organism": "Klebsiella pneumoniae",
+      "antibiotic": "Meropenem",
+      "method": "MIC",
+      "mic_mg_L": 0.25,
+      "specimenId": "GOLD-008"
+    },
+    "expected": {
+      "decision": "S",
+      "organism": "Klebsiella pneumoniae",
+      "antibiotic": "Meropenem"
+    }
+  },
+  {
+    "input": {
+      "organism": "Pseudomonas aeruginosa",
+      "antibiotic": "Piperacillin",
+      "method": "DISC",
+      "disc_zone_mm": 25.0,
+      "specimenId": "GOLD-009"
+    },
+    "expected": {
+      "decision": ["S", "I"],
+      "organism": "Pseudomonas aeruginosa",
+      "antibiotic": "Piperacillin"
+    }
+  },
+  {
+    "input": {
+      "organism": "Escherichia coli",
+      "antibiotic": "Ciprofloxacin",
+      "method": "DISC",
+      "disc_zone_mm": null,
+      "specimenId": "GOLD-010"
+    },
+    "expected": {
+      "decision": "Requires Review",
+      "organism": "Escherichia coli",
+      "antibiotic": "Ciprofloxacin"
+    }
+  },
+  {
+    "input": {
+      "organism": "Escherichia coli",
+      "antibiotic": "Amoxicillin",
+      "method": "MIC", 
+      "mic_mg_L": 8.0,
+      "specimenId": "GOLD-011"
+    },
+    "expected": {
+      "decision": ["S", "I", "R"],
+      "organism": "Escherichia coli",
+      "antibiotic": "Amoxicillin"
+    }
+  },
+  {
+    "input": {
+      "organism": "Klebsiella pneumoniae",
+      "antibiotic": "Gentamicin",
+      "method": "DISC",
+      "disc_zone_mm": 16.0,
+      "specimenId": "GOLD-013",
+      "features": {"esbl": true, "carbapenemase": false}
+    },
+    "expected": {
+      "decision": ["S", "I", "R", "RR"],
+      "organism": "Klebsiella pneumoniae",
+      "antibiotic": "Gentamicin"
+    }
+  }
+]

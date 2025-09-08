@@ -1,0 +1,46 @@
+[
+  {
+    "input": {
+      "organism": "Staphylococcus aureus",
+      "antibiotic": "Gentamicin",
+      "method": "MIC",
+      "mic_mg_L": 2.0,
+      "specimenId": "GOLD-005"
+    },
+    "expected": {
+      "decision": "S",
+      "organism": "Staphylococcus aureus",
+      "antibiotic": "Gentamicin"
+    }
+  },
+  {
+    "input": {
+      "organism": "Staphylococcus aureus",
+      "antibiotic": "Penicillin",
+      "method": "MIC",
+      "mic_mg_L": 0.06,
+      "specimenId": "GOLD-006",
+      "features": {"mrsa": true}
+    },
+    "expected": {
+      "decision": "R",
+      "organism": "Staphylococcus aureus",
+      "antibiotic": "Penicillin"
+    }
+  },
+  {
+    "input": {
+      "organism": "Staphylococcus aureus",
+      "antibiotic": "Vancomycin",
+      "method": "MIC",
+      "mic_mg_L": 1.0,
+      "specimenId": "GOLD-012",
+      "features": {"mrsa": true}
+    },
+    "expected": {
+      "decision": "S",
+      "organism": "Staphylococcus aureus",
+      "antibiotic": "Vancomycin"
+    }
+  }
+]

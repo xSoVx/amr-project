@@ -11,7 +11,7 @@ lint:
 	isort --check-only .
 
 test:
-	pytest -q --maxfail=1 --disable-warnings --cov=amr_engine --cov-report=term-missing
+	pytest -q --maxfail=1 --disable-warnings --cov=amr_engine --cov-report=term-missing --cov-fail-under=80
 
 run:
 	uvicorn amr_engine.main:app --host 0.0.0.0 --port 8080

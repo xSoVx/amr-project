@@ -157,11 +157,24 @@ class AuthenticationService:
     
     async def _validate_static_token(self, token: str) -> Optional[Dict[str, Any]]:
         """Validate static admin token."""
+        # Check if static token is allowed
+        if self.settings.ADMIN_TOKEN_DEVELOPMENT_ONLY:
+            # Only allow in development/debug mode
+            import os
+            is_development = (
+                os.getenv("DEBUG", "false").lower() == "true" or
+                os.getenv("ENVIRONMENT", "development").lower() in ["dev", "development", "local"]
+            )
+            if not is_development:
+                logger.warning("Static admin token rejected: development-only mode is enabled but not in development environment")
+                return None
+        
         if token == self.settings.ADMIN_TOKEN:
             return {
                 "sub": "admin",
-                "scope": "admin",
-                "auth_method": "static_token"
+                "scope": "admin", 
+                "auth_method": "static_token",
+                "development_only": self.settings.ADMIN_TOKEN_DEVELOPMENT_ONLY
             }
         return None
     

@@ -5,17 +5,21 @@ import logging
 import os
 from typing import Any, List
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, Response, status
+from fastapi.openapi.utils import get_openapi
+import yaml
 from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, Counter, generate_latest
 
 from .. import __version__
 from ..config import get_settings
 from ..core.classifier import Classifier
 from ..core.fhir_adapter import parse_bundle_or_observations
+from ..core.fhir_profiles import FHIRProfileValidator
+from ..core.metrics import metrics
 from ..core.hl7v2_parser import parse_hl7v2_message
 from ..core.rules_loader import RulesLoader
 from ..core.schemas import ClassificationInput, ClassificationResult, OperationOutcome, ProblemDetails, OperationOutcomeIssue
-from .deps import admin_auth
+from .deps import admin_auth, require_admin_auth
 
 logger = logging.getLogger(__name__)
 
@@ -145,6 +149,37 @@ def version() -> dict:
 
 
 @router.get(
+    "/openapi.yaml",
+    tags=["health"],
+    summary="OpenAPI Specification (YAML)",
+    description="Returns the OpenAPI specification in YAML format for API documentation and client generation",
+    response_description="OpenAPI specification in YAML format",
+    responses={
+        200: {
+            "description": "OpenAPI specification",
+            "content": {
+                "application/x-yaml": {
+                    "example": "openapi: 3.0.2\ninfo:\n  title: AMR Classification Engine\n  version: 0.1.0"
+                }
+            }
+        }
+    }
+)
+def openapi_yaml(request: Request) -> Response:
+    """Get OpenAPI specification in YAML format for API documentation."""
+    # Get the FastAPI app from the request
+    from ..main import app
+    
+    # Generate the OpenAPI JSON
+    openapi_schema = app.openapi()
+    
+    # Convert to YAML
+    yaml_content = yaml.dump(openapi_schema, default_flow_style=False, sort_keys=False)
+    
+    return Response(content=yaml_content, media_type="application/x-yaml")
+
+
+@router.get(
     "/metrics",
     tags=["metrics"],
     summary="Prometheus Metrics",
@@ -186,6 +221,12 @@ def metrics() -> Response:
     - String starting with `MSH|` → HL7v2 processing  
     - FHIR Bundle/Observations → FHIR processing
     - Direct JSON → Raw processing
+    
+    ### FHIR Profile Pack Selection:
+    - **Header**: `X-FHIR-Profile-Pack: IL-Core` (highest priority)
+    - **Query Parameter**: `profile_pack=US-Core` (medium priority)  
+    - **Default**: Server configuration (lowest priority)
+    - **Supported Packs**: Base, IL-Core, US-Core, IPS
     
     ### Required Fields:
     - `organism` or `organism_snomed`: Bacterial species
@@ -245,7 +286,11 @@ def metrics() -> Response:
             "content": {
                 "application/json": {
                     "example": {
-                        "detail": {
+                        "type": "https://amr-engine.com/problems/input-validation-error",
+                        "title": "Input Validation Error",
+                        "status": 400,
+                        "detail": "Missing required field: organism",
+                        "operationOutcome": {
                             "resourceType": "OperationOutcome",
                             "issue": [{
                                 "severity": "error",
@@ -259,7 +304,7 @@ def metrics() -> Response:
         }
     }
 )
-async def classify(request: Request, payload: Any) -> List[ClassificationResult]:
+async def classify(request: Request, payload: Any, profile_pack: Optional[str] = None) -> List[ClassificationResult]:
     """
     Enhanced classification endpoint supporting FHIR R4, HL7v2, and direct JSON input.
     
@@ -271,8 +316,17 @@ async def classify(request: Request, payload: Any) -> List[ClassificationResult]
     classifier = Classifier(loader)
     
     try:
+        # Determine FHIR profile pack from header, query param, or default
+        selected_profile_pack = _get_profile_pack_selection(request, profile_pack)
+        if selected_profile_pack:
+            metrics.record_profile_selection(
+                profile_pack=selected_profile_pack,
+                selection_source=_get_profile_pack_source(request, profile_pack),
+                tenant_id=request.headers.get("X-Tenant-ID")
+            )
+        
         # Determine input format and parse accordingly
-        inputs = await _parse_input(payload, request)
+        inputs = await _parse_input(payload, request, selected_profile_pack)
     except Exception as e:
         operation_outcome = OperationOutcome(
             issue=[OperationOutcomeIssue(
@@ -290,7 +344,7 @@ async def classify(request: Request, payload: Any) -> List[ClassificationResult]
         )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=problem.model_dump(),
+            detail=problem,
             headers={"Content-Type": "application/problem+json"}
         )
 
@@ -401,7 +455,7 @@ def rules_dry_run(item: ClassificationInput) -> ClassificationResult:
         }
     }
 )
-def rules_reload(_: None = Depends(admin_auth)) -> dict:
+def rules_reload(admin_user: dict = Depends(require_admin_auth)) -> dict:
     """
     Reload classification rules from configured sources.
     
@@ -428,6 +482,12 @@ def rules_reload(_: None = Depends(admin_auth)) -> dict:
     - **Bundle**: FHIR Bundle containing Observation resources
     - **Observation Array**: Array of FHIR Observation resources
     - **Single Observation**: Single FHIR Observation resource
+    
+    ### FHIR Profile Pack Selection:
+    - **Header**: `X-FHIR-Profile-Pack: IL-Core` (highest priority)
+    - **Query Parameter**: `profile_pack=US-Core` (medium priority)  
+    - **Default**: Server configuration (lowest priority)
+    - **Supported Packs**: Base, IL-Core, US-Core, IPS
     
     ### FHIR Observation Requirements:
     - **code**: Must contain antimicrobial susceptibility test codes
@@ -520,7 +580,11 @@ def rules_reload(_: None = Depends(admin_auth)) -> dict:
             "content": {
                 "application/json": {
                     "example": {
-                        "detail": {
+                        "type": "https://amr-engine.com/problems/fhir-parsing-error",
+                        "title": "FHIR Parsing Error",
+                        "status": 400,
+                        "detail": "FHIR parsing error: Missing Observation resources",
+                        "operationOutcome": {
                             "resourceType": "OperationOutcome",
                             "issue": [{
                                 "severity": "error",
@@ -534,7 +598,7 @@ def rules_reload(_: None = Depends(admin_auth)) -> dict:
         }
     }
 )
-async def classify_fhir(request: Request, payload: Any) -> List[ClassificationResult]:
+async def classify_fhir(request: Request, payload: Any, profile_pack: Optional[str] = None) -> List[ClassificationResult]:
     """
     Dedicated endpoint for FHIR Bundle and Observation processing.
     
@@ -545,8 +609,17 @@ async def classify_fhir(request: Request, payload: Any) -> List[ClassificationRe
     classifier = Classifier(loader)
     
     try:
+        # Determine FHIR profile pack from header, query param, or default
+        selected_profile_pack = _get_profile_pack_selection(request, profile_pack)
+        if selected_profile_pack:
+            metrics.record_profile_selection(
+                profile_pack=selected_profile_pack,
+                selection_source=_get_profile_pack_source(request, profile_pack),
+                tenant_id=request.headers.get("X-Tenant-ID")
+            )
+        
         # Force FHIR parsing by calling parse_bundle_or_observations directly
-        inputs = await parse_bundle_or_observations(payload)
+        inputs = await parse_bundle_or_observations(payload, profile_pack=selected_profile_pack)
     except Exception as e:
         operation_outcome = OperationOutcome(
             issue=[OperationOutcomeIssue(
@@ -564,7 +637,7 @@ async def classify_fhir(request: Request, payload: Any) -> List[ClassificationRe
         )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=problem.model_dump(),
+            detail=problem,
             headers={"Content-Type": "application/problem+json"}
         )
     
@@ -577,7 +650,36 @@ async def classify_fhir(request: Request, payload: Any) -> List[ClassificationRe
     return results
 
 
-async def _parse_input(payload: Any, request: Request) -> List[ClassificationInput]:
+def _get_profile_pack_selection(request: Request, query_param: Optional[str] = None) -> Optional[str]:
+    """Determine FHIR profile pack from header, query param, or default."""
+    from ..config import get_settings, ProfilePack
+    
+    # Priority order: X-FHIR-Profile-Pack header > query param > config default
+    profile_pack = request.headers.get("X-FHIR-Profile-Pack") or query_param
+    
+    if profile_pack:
+        # Validate against allowed values
+        valid_packs = {"IL-Core", "US-Core", "IPS", "Base"}
+        if profile_pack in valid_packs:
+            return profile_pack
+        else:
+            # Fall back to default if invalid value provided
+            return get_settings().FHIR_PROFILE_PACK
+    
+    return get_settings().FHIR_PROFILE_PACK
+
+
+def _get_profile_pack_source(request: Request, query_param: Optional[str] = None) -> str:
+    """Determine the source of profile pack selection for metrics."""
+    if request.headers.get("X-FHIR-Profile-Pack"):
+        return "header"
+    elif query_param:
+        return "query_param"
+    else:
+        return "default"
+
+
+async def _parse_input(payload: Any, request: Request, profile_pack: Optional[str] = None) -> List[ClassificationInput]:
     """Parse input data from various formats (FHIR, HL7v2)."""
     # Check Content-Type header to determine format
     content_type = request.headers.get("content-type", "").lower()
@@ -597,7 +699,7 @@ async def _parse_input(payload: Any, request: Request) -> List[ClassificationInp
             return parse_hl7v2_message(payload)
     
     # Default to FHIR parsing
-    return await parse_bundle_or_observations(payload)
+    return await parse_bundle_or_observations(payload, profile_pack=profile_pack)
 
 
 @router.post(
@@ -659,7 +761,11 @@ async def _parse_input(payload: Any, request: Request) -> List[ClassificationInp
             "content": {
                 "application/json": {
                     "example": {
-                        "detail": {
+                        "type": "https://amr-engine.com/problems/hl7v2-parsing-error",
+                        "title": "HL7v2 Parsing Error",
+                        "status": 400,
+                        "detail": "HL7v2 parsing error: Missing MSH segment",
+                        "operationOutcome": {
                             "resourceType": "OperationOutcome",
                             "issue": [{
                                 "severity": "error", 
@@ -702,7 +808,7 @@ def classify_hl7v2(request: Request, message: str) -> List[ClassificationResult]
         )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=problem.model_dump(),
+            detail=problem,
             headers={"Content-Type": "application/problem+json"}
         )
     

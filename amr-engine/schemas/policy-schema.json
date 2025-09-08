@@ -1,0 +1,460 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://amr-engine.com/schemas/policy.json",
+  "title": "AMR Engine Policy Configuration",
+  "description": "Configuration schema for AMR Engine access control, validation, and operational policies",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Policy schema version in semver format"
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Human-readable policy name"
+        },
+        "description": {
+          "type": "string",
+          "description": "Policy description"
+        },
+        "author": {
+          "type": "string",
+          "description": "Policy author or organization"
+        },
+        "created": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Policy creation timestamp"
+        },
+        "lastModified": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Policy last modification timestamp"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Policy classification tags"
+        }
+      },
+      "required": ["name", "author"],
+      "additionalProperties": false
+    },
+    "accessControl": {
+      "type": "object",
+      "description": "Access control and authentication policies",
+      "properties": {
+        "authentication": {
+          "type": "object",
+          "properties": {
+            "required": {
+              "type": "boolean",
+              "description": "Whether authentication is required for API access"
+            },
+            "methods": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["static-token", "oauth2", "mtls", "basic"]
+              },
+              "description": "Supported authentication methods"
+            },
+            "staticToken": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "description": "Enable static admin token authentication"
+                },
+                "developmentOnly": {
+                  "type": "boolean",
+                  "description": "Restrict static token to development environments only"
+                }
+              },
+              "additionalProperties": false
+            },
+            "oauth2": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "issuerUrl": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "audience": {
+                  "type": "string"
+                },
+                "requiredScopes": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "additionalProperties": false
+            },
+            "mtls": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "requireClientCert": {
+                  "type": "boolean"
+                },
+                "trustedCAs": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "authorization": {
+          "type": "object",
+          "properties": {
+            "rbac": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "roles": {
+                  "type": "object",
+                  "patternProperties": {
+                    "^[a-zA-Z][a-zA-Z0-9_-]*$": {
+                      "type": "object",
+                      "properties": {
+                        "description": {
+                          "type": "string"
+                        },
+                        "permissions": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "classify:read",
+                              "classify:write", 
+                              "admin:rules:reload",
+                              "admin:metrics:read",
+                              "health:read"
+                            ]
+                          }
+                        },
+                        "tenants": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Allowed tenant IDs (empty = all tenants)"
+                        }
+                      },
+                      "required": ["permissions"],
+                      "additionalProperties": false
+                    }
+                  }
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "validation": {
+      "type": "object",
+      "description": "Data validation and processing policies",
+      "properties": {
+        "fhir": {
+          "type": "object",
+          "properties": {
+            "strictValidation": {
+              "type": "boolean",
+              "description": "Enable strict FHIR profile validation"
+            },
+            "allowedProfiles": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["Base", "IL-Core", "US-Core", "IPS"]
+              },
+              "description": "Allowed FHIR profile packs"
+            },
+            "defaultProfile": {
+              "type": "string",
+              "enum": ["Base", "IL-Core", "US-Core", "IPS"],
+              "description": "Default FHIR profile pack"
+            },
+            "validateReferences": {
+              "type": "boolean",
+              "description": "Validate FHIR resource references"
+            }
+          },
+          "additionalProperties": false
+        },
+        "classification": {
+          "type": "object",
+          "properties": {
+            "requireSpecimen": {
+              "type": "boolean",
+              "description": "Require specimen ID for all classifications"
+            },
+            "allowMissingValues": {
+              "type": "boolean",
+              "description": "Allow classification with missing MIC/disc zone values"
+            },
+            "validationLevel": {
+              "type": "string",
+              "enum": ["strict", "standard", "permissive"],
+              "description": "Classification input validation level"
+            },
+            "maxBatchSize": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "description": "Maximum number of classifications per batch request"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "operational": {
+      "type": "object",
+      "description": "Operational and performance policies",
+      "properties": {
+        "rateLimit": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "requestsPerMinute": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "burstSize": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "perTenant": {
+              "type": "boolean",
+              "description": "Apply rate limiting per tenant"
+            }
+          },
+          "additionalProperties": false
+        },
+        "caching": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "ruleCacheTtl": {
+              "type": "integer",
+              "description": "Rule cache TTL in seconds"
+            },
+            "terminologyCacheTtl": {
+              "type": "integer",
+              "description": "Terminology cache TTL in seconds"
+            }
+          },
+          "additionalProperties": false
+        },
+        "audit": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "auditAllClassifications": {
+              "type": "boolean",
+              "description": "Generate audit events for all classification operations"
+            },
+            "auditFailuresOnly": {
+              "type": "boolean",
+              "description": "Only audit failed operations"
+            },
+            "retentionDays": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Audit log retention period in days"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "security": {
+      "type": "object",
+      "description": "Security and compliance policies", 
+      "properties": {
+        "encryption": {
+          "type": "object",
+          "properties": {
+            "enforceHttps": {
+              "type": "boolean",
+              "description": "Enforce HTTPS for all API endpoints"
+            },
+            "hsts": {
+              "type": "boolean",
+              "description": "Enable HTTP Strict Transport Security headers"
+            }
+          },
+          "additionalProperties": false
+        },
+        "cors": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "allowedOrigins": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "allowedMethods": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"]
+              }
+            },
+            "allowCredentials": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "headers": {
+          "type": "object",
+          "properties": {
+            "removeServerHeader": {
+              "type": "boolean",
+              "description": "Remove server identification headers"
+            },
+            "customHeaders": {
+              "type": "object",
+              "patternProperties": {
+                "^[a-zA-Z][a-zA-Z0-9-]*$": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": ["version", "metadata"],
+  "additionalProperties": false,
+  "examples": [
+    {
+      "version": "1.0.0",
+      "metadata": {
+        "name": "Production AMR Engine Policy",
+        "description": "Production configuration with strict validation and full audit",
+        "author": "AMR Team",
+        "created": "2024-01-01T00:00:00Z",
+        "tags": ["production", "strict", "audit"]
+      },
+      "accessControl": {
+        "authentication": {
+          "required": true,
+          "methods": ["oauth2", "mtls"],
+          "staticToken": {
+            "enabled": false,
+            "developmentOnly": true
+          },
+          "oauth2": {
+            "enabled": true,
+            "issuerUrl": "https://auth.example.com",
+            "audience": "amr-engine",
+            "requiredScopes": ["amr:classify"]
+          }
+        },
+        "authorization": {
+          "rbac": {
+            "enabled": true,
+            "roles": {
+              "classifier": {
+                "description": "Standard classification user",
+                "permissions": ["classify:read", "classify:write", "health:read"]
+              },
+              "admin": {
+                "description": "System administrator",
+                "permissions": [
+                  "classify:read",
+                  "classify:write", 
+                  "admin:rules:reload",
+                  "admin:metrics:read",
+                  "health:read"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "validation": {
+        "fhir": {
+          "strictValidation": true,
+          "allowedProfiles": ["IL-Core", "US-Core", "IPS"],
+          "defaultProfile": "US-Core",
+          "validateReferences": true
+        },
+        "classification": {
+          "requireSpecimen": true,
+          "allowMissingValues": false,
+          "validationLevel": "strict",
+          "maxBatchSize": 100
+        }
+      },
+      "operational": {
+        "rateLimit": {
+          "enabled": true,
+          "requestsPerMinute": 60,
+          "burstSize": 10,
+          "perTenant": true
+        },
+        "audit": {
+          "enabled": true,
+          "auditAllClassifications": true,
+          "auditFailuresOnly": false,
+          "retentionDays": 2555
+        }
+      },
+      "security": {
+        "encryption": {
+          "enforceHttps": true,
+          "hsts": true
+        },
+        "cors": {
+          "enabled": true,
+          "allowedOrigins": ["https://app.example.com"],
+          "allowedMethods": ["GET", "POST"],
+          "allowCredentials": true
+        }
+      }
+    }
+  ]
+}

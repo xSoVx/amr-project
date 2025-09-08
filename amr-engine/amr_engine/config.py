@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     AMR_RULES_PATH: str = "amr_engine/rules/eucast_v_2025_1.yaml"
     ADMIN_TOKEN: Optional[str] = None
+    ADMIN_TOKEN_DEVELOPMENT_ONLY: bool = True
     EUST_VER: Optional[str] = None
     
     # FHIR Profile Pack Configuration

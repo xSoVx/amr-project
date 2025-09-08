@@ -1,0 +1,89 @@
+{
+  "version": "1.0.0",
+  "metadata": {
+    "name": "Development AMR Engine Policy",
+    "description": "Development configuration with relaxed validation and basic audit",
+    "author": "AMR Team",
+    "created": "2024-01-01T00:00:00Z",
+    "tags": ["development", "permissive"]
+  },
+  "accessControl": {
+    "authentication": {
+      "required": true,
+      "methods": ["static-token"],
+      "staticToken": {
+        "enabled": true,
+        "developmentOnly": true
+      }
+    },
+    "authorization": {
+      "rbac": {
+        "enabled": true,
+        "roles": {
+          "developer": {
+            "description": "Development access",
+            "permissions": [
+              "classify:read",
+              "classify:write", 
+              "admin:rules:reload",
+              "admin:metrics:read",
+              "health:read"
+            ]
+          },
+          "tester": {
+            "description": "Testing access",
+            "permissions": ["classify:read", "classify:write", "health:read"]
+          }
+        }
+      }
+    }
+  },
+  "validation": {
+    "fhir": {
+      "strictValidation": false,
+      "allowedProfiles": ["Base", "IL-Core", "US-Core", "IPS"],
+      "defaultProfile": "Base",
+      "validateReferences": false
+    },
+    "classification": {
+      "requireSpecimen": false,
+      "allowMissingValues": true,
+      "validationLevel": "permissive",
+      "maxBatchSize": 500
+    }
+  },
+  "operational": {
+    "rateLimit": {
+      "enabled": false,
+      "requestsPerMinute": 1000,
+      "burstSize": 50,
+      "perTenant": false
+    },
+    "caching": {
+      "enabled": true,
+      "ruleCacheTtl": 1800,
+      "terminologyCacheTtl": 3600
+    },
+    "audit": {
+      "enabled": true,
+      "auditAllClassifications": false,
+      "auditFailuresOnly": true,
+      "retentionDays": 30
+    }
+  },
+  "security": {
+    "encryption": {
+      "enforceHttps": false,
+      "hsts": false
+    },
+    "cors": {
+      "enabled": true,
+      "allowedOrigins": ["*"],
+      "allowedMethods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+      "allowCredentials": false
+    },
+    "headers": {
+      "removeServerHeader": false
+    }
+  }
+}
