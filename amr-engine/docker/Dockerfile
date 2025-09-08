@@ -21,7 +21,6 @@ WORKDIR /app
 COPY pyproject.toml ./pyproject.toml
 COPY LICENSE ./LICENSE
 COPY amr_engine ./amr_engine
-COPY rules ./rules
 COPY .env.example .env.example
 
 # Install Python dependencies
@@ -59,7 +58,6 @@ WORKDIR /app
 COPY pyproject.toml ./pyproject.toml
 COPY LICENSE ./LICENSE
 COPY amr_engine ./amr_engine
-COPY rules ./rules
 COPY tests ./tests
 COPY .env.example .env.example
 

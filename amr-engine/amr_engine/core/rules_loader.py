@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import signal
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -56,7 +57,9 @@ class RulesLoader:
         self._validator: Optional[Draft202012Validator] = None
         self.ruleset: Optional[Ruleset] = None
 
-        signal.signal(signal.SIGHUP, self._on_sighup)
+        # Register SIGHUP handler only on Unix systems
+        if hasattr(signal, 'SIGHUP'):
+            signal.signal(signal.SIGHUP, self._on_sighup)
 
     def _on_sighup(self, signum: int, frame: Any) -> None:  # pragma: no cover (signal path)
         logger.info("SIGHUP received: reloading rules")
