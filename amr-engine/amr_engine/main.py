@@ -105,11 +105,46 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(RulesValidationError)
     async def rules_error_handler(request: Request, exc: RulesValidationError):
-        return JSONResponse(status_code=500, content={"error": str(exc)})
+        from .core.schemas import ProblemDetails, OperationOutcome, OperationOutcomeIssue
+        problem = ProblemDetails(
+            type="https://amr-engine.com/problems/rules-validation-error",
+            title="Rules Validation Error",
+            status=500,
+            detail=str(exc),
+            operationOutcome=OperationOutcome(
+                issue=[OperationOutcomeIssue(
+                    severity="error",
+                    code="processing",
+                    diagnostics=str(exc)
+                )]
+            )
+        )
+        return JSONResponse(
+            status_code=500, 
+            content=problem.model_dump(),
+            headers={"Content-Type": "application/problem+json"}
+        )
 
     @app.exception_handler(FHIRValidationError)
     async def fhir_error_handler(request: Request, exc: FHIRValidationError):
-        return JSONResponse(status_code=400, content={"resourceType": "OperationOutcome", "issue": exc.issues or [{"severity": "error", "diagnostics": exc.detail}]})
+        from .core.schemas import ProblemDetails, OperationOutcome, OperationOutcomeIssue
+        issues = exc.issues or [{"severity": "error", "diagnostics": exc.detail}]
+        operation_outcome_issues = [
+            OperationOutcomeIssue(**issue) if isinstance(issue, dict) else issue 
+            for issue in issues
+        ]
+        problem = ProblemDetails(
+            type="https://amr-engine.com/problems/fhir-validation-error",
+            title="FHIR Validation Error",
+            status=400,
+            detail=exc.detail,
+            operationOutcome=OperationOutcome(issue=operation_outcome_issues)
+        )
+        return JSONResponse(
+            status_code=400, 
+            content=problem.model_dump(),
+            headers={"Content-Type": "application/problem+json"}
+        )
 
     # Instrument FastAPI with tracing if available
     if tracing:

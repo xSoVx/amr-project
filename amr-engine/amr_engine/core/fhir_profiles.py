@@ -7,13 +7,16 @@ from pathlib import Path
 import httpx
 from urllib.parse import urljoin
 
+from ..config import ProfilePack
+
 logger = logging.getLogger(__name__)
 
 
 class FHIRProfileValidator:
     """FHIR Profile validation against standard and custom profiles."""
     
-    def __init__(self, profile_registry_url: Optional[str] = None):
+    def __init__(self, profile_pack: ProfilePack = "Base", profile_registry_url: Optional[str] = None):
+        self.profile_pack = profile_pack
         self.profile_registry_url = profile_registry_url or "http://hl7.org/fhir"
         self.cached_profiles: Dict[str, Dict[str, Any]] = {}
         self.validation_errors: List[Dict[str, str]] = []
@@ -78,9 +81,9 @@ class FHIRProfileValidator:
         return None
     
     async def _load_standard_profile(self, profile_url: str) -> Optional[Dict[str, Any]]:
-        """Load standard FHIR profiles with built-in definitions."""
-        # Built-in profile definitions for common AMR profiles
-        standard_profiles = {
+        """Load standard FHIR profiles with built-in definitions based on profile pack."""
+        # Base profiles available in all packs
+        base_profiles = {
             "http://hl7.org/fhir/StructureDefinition/Observation": self._get_observation_profile(),
             "http://hl7.org/fhir/StructureDefinition/DiagnosticReport": self._get_diagnostic_report_profile(),
             "http://hl7.org/fhir/StructureDefinition/Patient": self._get_patient_profile(),
@@ -91,7 +94,18 @@ class FHIRProfileValidator:
             "http://hl7.org/fhir/uv/laboratory/StructureDefinition/Observation-resultsAst": self._get_ast_observation_profile(),
         }
         
-        return standard_profiles.get(profile_url)
+        # Profile pack specific profiles
+        pack_profiles = {}
+        if self.profile_pack == "IL-Core":
+            pack_profiles.update(self._get_il_core_profiles())
+        elif self.profile_pack == "US-Core":
+            pack_profiles.update(self._get_us_core_profiles())
+        elif self.profile_pack == "IPS":
+            pack_profiles.update(self._get_ips_profiles())
+        
+        # Merge base and pack-specific profiles
+        all_profiles = {**base_profiles, **pack_profiles}
+        return all_profiles.get(profile_url)
     
     def _get_observation_profile(self) -> Dict[str, Any]:
         """Get base Observation profile definition."""
@@ -498,6 +512,195 @@ class FHIRProfileValidator:
                 })
         
         return True
+    
+    def _get_il_core_profiles(self) -> Dict[str, Dict[str, Any]]:
+        """Get IL-Core (Israeli Core) specific profiles."""
+        return {
+            "http://fhir.health.gov.il/StructureDefinition/il-core-patient": {
+                "resourceType": "StructureDefinition",
+                "id": "il-core-patient",
+                "url": "http://fhir.health.gov.il/StructureDefinition/il-core-patient",
+                "differential": {
+                    "element": [
+                        {
+                            "id": "Patient.identifier",
+                            "path": "Patient.identifier",
+                            "min": 1,
+                            "max": "*"
+                        },
+                        {
+                            "id": "Patient.identifier.system",
+                            "path": "Patient.identifier.system",
+                            "min": 1,
+                            "max": "1"
+                        }
+                    ]
+                }
+            },
+            "http://fhir.health.gov.il/StructureDefinition/il-core-observation": {
+                "resourceType": "StructureDefinition", 
+                "id": "il-core-observation",
+                "url": "http://fhir.health.gov.il/StructureDefinition/il-core-observation",
+                "differential": {
+                    "element": [
+                        {
+                            "id": "Observation.identifier",
+                            "path": "Observation.identifier",
+                            "min": 0,
+                            "max": "*"
+                        }
+                    ]
+                }
+            }
+        }
+    
+    def _get_us_core_profiles(self) -> Dict[str, Dict[str, Any]]:
+        """Get US-Core specific profiles."""
+        return {
+            "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient": {
+                "resourceType": "StructureDefinition",
+                "id": "us-core-patient",
+                "url": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient",
+                "differential": {
+                    "element": [
+                        {
+                            "id": "Patient.identifier",
+                            "path": "Patient.identifier",
+                            "min": 1,
+                            "max": "*"
+                        },
+                        {
+                            "id": "Patient.name",
+                            "path": "Patient.name",
+                            "min": 1,
+                            "max": "*"
+                        },
+                        {
+                            "id": "Patient.gender",
+                            "path": "Patient.gender",
+                            "min": 1,
+                            "max": "1"
+                        }
+                    ]
+                }
+            },
+            "http://hl7.org/fhir/us/core/StructureDefinition/us-core-observation-lab": {
+                "resourceType": "StructureDefinition",
+                "id": "us-core-observation-lab", 
+                "url": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-observation-lab",
+                "differential": {
+                    "element": [
+                        {
+                            "id": "Observation.category",
+                            "path": "Observation.category",
+                            "min": 1,
+                            "max": "*",
+                            "fixedCodeableConcept": {
+                                "coding": [{
+                                    "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                                    "code": "laboratory"
+                                }]
+                            }
+                        },
+                        {
+                            "id": "Observation.subject",
+                            "path": "Observation.subject",
+                            "min": 1,
+                            "max": "1"
+                        },
+                        {
+                            "id": "Observation.effectiveDateTime",
+                            "path": "Observation.effectiveDateTime",
+                            "min": 1,
+                            "max": "1"
+                        }
+                    ]
+                }
+            }
+        }
+    
+    def _get_ips_profiles(self) -> Dict[str, Dict[str, Any]]:
+        """Get IPS (International Patient Summary) specific profiles."""
+        return {
+            "http://hl7.org/fhir/uv/ips/StructureDefinition/Patient-uv-ips": {
+                "resourceType": "StructureDefinition",
+                "id": "Patient-uv-ips",
+                "url": "http://hl7.org/fhir/uv/ips/StructureDefinition/Patient-uv-ips",
+                "differential": {
+                    "element": [
+                        {
+                            "id": "Patient.identifier",
+                            "path": "Patient.identifier",
+                            "min": 0,
+                            "max": "*"
+                        },
+                        {
+                            "id": "Patient.name",
+                            "path": "Patient.name",
+                            "min": 1,
+                            "max": "*"
+                        },
+                        {
+                            "id": "Patient.gender",
+                            "path": "Patient.gender",
+                            "min": 1,
+                            "max": "1"
+                        },
+                        {
+                            "id": "Patient.birthDate",
+                            "path": "Patient.birthDate",
+                            "min": 0,
+                            "max": "1"
+                        }
+                    ]
+                }
+            },
+            "http://hl7.org/fhir/uv/ips/StructureDefinition/Observation-results-uv-ips": {
+                "resourceType": "StructureDefinition",
+                "id": "Observation-results-uv-ips",
+                "url": "http://hl7.org/fhir/uv/ips/StructureDefinition/Observation-results-uv-ips",
+                "differential": {
+                    "element": [
+                        {
+                            "id": "Observation.status",
+                            "path": "Observation.status",
+                            "min": 1,
+                            "max": "1"
+                        },
+                        {
+                            "id": "Observation.category",
+                            "path": "Observation.category",
+                            "min": 1,
+                            "max": "*"
+                        },
+                        {
+                            "id": "Observation.code",
+                            "path": "Observation.code",
+                            "min": 1,
+                            "max": "1"
+                        },
+                        {
+                            "id": "Observation.subject",
+                            "path": "Observation.subject",
+                            "min": 1,
+                            "max": "1"
+                        },
+                        {
+                            "id": "Observation.effectiveDateTime",
+                            "path": "Observation.effectiveDateTime",
+                            "min": 0,
+                            "max": "1"
+                        },
+                        {
+                            "id": "Observation.performer",
+                            "path": "Observation.performer",
+                            "min": 0,
+                            "max": "*"
+                        }
+                    ]
+                }
+            }
+        }
 
 
 # Global profile validator instance

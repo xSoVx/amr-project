@@ -14,7 +14,7 @@ from ..core.classifier import Classifier
 from ..core.fhir_adapter import parse_bundle_or_observations
 from ..core.hl7v2_parser import parse_hl7v2_message
 from ..core.rules_loader import RulesLoader
-from ..core.schemas import ClassificationInput, ClassificationResult, OperationOutcome
+from ..core.schemas import ClassificationInput, ClassificationResult, OperationOutcome, ProblemDetails, OperationOutcomeIssue
 from .deps import admin_auth
 
 logger = logging.getLogger(__name__)
@@ -33,8 +33,8 @@ CLASSIFICATIONS = Counter(
 @router.get(
     "/healthz",
     tags=["health"],
-    summary="Health Check",
-    description="Returns the health status of the AMR classification service",
+    summary="Health Check (Legacy)",
+    description="Legacy health check endpoint for backward compatibility",
     response_description="Service health status",
     responses={
         200: {
@@ -48,8 +48,75 @@ CLASSIFICATIONS = Counter(
     }
 )
 def healthz() -> dict:
-    """Health check endpoint to verify service availability."""
+    """Legacy health check endpoint to verify service availability."""
     return {"status": "ok"}
+
+
+@router.get(
+    "/health",
+    tags=["health"],
+    summary="Health Check",
+    description="Returns the health status of the AMR classification service",
+    response_description="Service health status",
+    responses={
+        200: {
+            "description": "Service is healthy",
+            "content": {
+                "application/json": {
+                    "example": {"status": "healthy"}
+                }
+            }
+        }
+    }
+)
+def health() -> dict:
+    """Health check endpoint to verify service availability."""
+    return {"status": "healthy"}
+
+
+@router.get(
+    "/ready",
+    tags=["health"],
+    summary="Readiness Check",
+    description="Returns the readiness status of the AMR classification service - checks if the service can handle requests",
+    response_description="Service readiness status",
+    responses={
+        200: {
+            "description": "Service is ready",
+            "content": {
+                "application/json": {
+                    "example": {"status": "ready"}
+                }
+            }
+        },
+        503: {
+            "description": "Service is not ready",
+            "content": {
+                "application/json": {
+                    "example": {"status": "not ready", "reason": "Rules not loaded"}
+                }
+            }
+        }
+    }
+)
+def ready() -> dict:
+    """Readiness check endpoint to verify service can handle requests."""
+    try:
+        # Check if rules can be loaded
+        loader = RulesLoader()
+        if not loader.ruleset:
+            loader.load()
+        if not loader.ruleset:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail={"status": "not ready", "reason": "Rules not loaded"}
+            )
+        return {"status": "ready"}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"status": "not ready", "reason": str(e)}
+        )
 
 
 @router.get(
@@ -207,12 +274,24 @@ async def classify(request: Request, payload: Any) -> List[ClassificationResult]
         # Determine input format and parse accordingly
         inputs = await _parse_input(payload, request)
     except Exception as e:
-        issues = [
-            {"severity": "error", "code": "invalid", "diagnostics": str(e)},
-        ]
+        operation_outcome = OperationOutcome(
+            issue=[OperationOutcomeIssue(
+                severity="error", 
+                code="invalid", 
+                diagnostics=str(e)
+            )]
+        )
+        problem = ProblemDetails(
+            type="https://amr-engine.com/problems/input-validation-error",
+            title="Input Validation Error",
+            status=400,
+            detail=str(e),
+            operationOutcome=operation_outcome
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=OperationOutcome(issue=issues).model_dump(),
+            detail=problem.model_dump(),
+            headers={"Content-Type": "application/problem+json"}
         )
 
     results: List[ClassificationResult] = []
@@ -469,12 +548,24 @@ async def classify_fhir(request: Request, payload: Any) -> List[ClassificationRe
         # Force FHIR parsing by calling parse_bundle_or_observations directly
         inputs = await parse_bundle_or_observations(payload)
     except Exception as e:
-        issues = [
-            {"severity": "error", "code": "invalid", "diagnostics": f"FHIR parsing error: {str(e)}"},
-        ]
+        operation_outcome = OperationOutcome(
+            issue=[OperationOutcomeIssue(
+                severity="error", 
+                code="invalid", 
+                diagnostics=f"FHIR parsing error: {str(e)}"
+            )]
+        )
+        problem = ProblemDetails(
+            type="https://amr-engine.com/problems/fhir-parsing-error",
+            title="FHIR Parsing Error",
+            status=400,
+            detail=f"FHIR parsing error: {str(e)}",
+            operationOutcome=operation_outcome
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=OperationOutcome(issue=issues).model_dump(),
+            detail=problem.model_dump(),
+            headers={"Content-Type": "application/problem+json"}
         )
     
     results: List[ClassificationResult] = []
@@ -595,12 +686,24 @@ def classify_hl7v2(request: Request, message: str) -> List[ClassificationResult]
     try:
         inputs = parse_hl7v2_message(message)
     except Exception as e:
-        issues = [
-            {"severity": "error", "code": "invalid", "diagnostics": f"HL7v2 parsing error: {str(e)}"},
-        ]
+        operation_outcome = OperationOutcome(
+            issue=[OperationOutcomeIssue(
+                severity="error", 
+                code="invalid", 
+                diagnostics=f"HL7v2 parsing error: {str(e)}"
+            )]
+        )
+        problem = ProblemDetails(
+            type="https://amr-engine.com/problems/hl7v2-parsing-error",
+            title="HL7v2 Parsing Error",
+            status=400,
+            detail=f"HL7v2 parsing error: {str(e)}",
+            operationOutcome=operation_outcome
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=OperationOutcome(issue=issues).model_dump(),
+            detail=problem.model_dump(),
+            headers={"Content-Type": "application/problem+json"}
         )
     
     results: List[ClassificationResult] = []

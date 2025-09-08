@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, Field
 
 
-Decision = Literal["S", "I", "R", "RR"]
+Decision = Literal["S", "I", "R", "RR", "Requires Review"]
 Method = Literal["MIC", "DISC"]
 
 
@@ -186,4 +186,56 @@ class OperationOutcomeIssue(BaseModel):
 class OperationOutcome(BaseModel):
     resourceType: Literal["OperationOutcome"] = "OperationOutcome"
     issue: List[OperationOutcomeIssue]
+
+
+class ProblemDetails(BaseModel):
+    """
+    RFC 7807 Problem Details for HTTP APIs.
+    """
+    type: Optional[str] = Field(
+        "about:blank",
+        description="A URI reference that identifies the problem type"
+    )
+    title: Optional[str] = Field(
+        None,
+        description="A short, human-readable summary of the problem type"
+    )
+    status: Optional[int] = Field(
+        None,
+        description="The HTTP status code"
+    )
+    detail: Optional[str] = Field(
+        None,
+        description="A human-readable explanation specific to this occurrence"
+    )
+    instance: Optional[str] = Field(
+        None,
+        description="A URI reference that identifies the specific occurrence"
+    )
+    # FHIR OperationOutcome embedded for healthcare context
+    operationOutcome: Optional[OperationOutcome] = Field(
+        None,
+        description="Embedded FHIR OperationOutcome for detailed error information"
+    )
+    
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "type": "https://amr-engine.com/problems/validation-error",
+                    "title": "Validation Error",
+                    "status": 400,
+                    "detail": "Input validation failed for classification request",
+                    "operationOutcome": {
+                        "resourceType": "OperationOutcome",
+                        "issue": [{
+                            "severity": "error",
+                            "code": "invalid",
+                            "diagnostics": "Missing required field: organism"
+                        }]
+                    }
+                }
+            ]
+        }
+    }
 

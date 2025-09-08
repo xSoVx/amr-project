@@ -1,0 +1,173 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: amr-engine
+  labels:
+    app: amr-engine
+    version: v1
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: amr-engine
+  template:
+    metadata:
+      labels:
+        app: amr-engine
+        version: v1
+    spec:
+      # Non-root security context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      
+      # Service account for RBAC
+      serviceAccountName: amr-engine
+      
+      containers:
+      - name: amr-engine
+        image: amr-engine:latest
+        imagePullPolicy: IfNotPresent
+        
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        
+        # Environment variables
+        env:
+        - name: SERVICE_NAME
+          value: "amr-engine"
+        - name: LOG_LEVEL
+          value: "INFO"
+        - name: FHIR_PROFILE_PACK
+          valueFrom:
+            configMapKeyRef:
+              name: amr-engine-config
+              key: fhir-profile-pack
+              optional: true
+        - name: FHIR_VALIDATION_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: amr-engine-config
+              key: fhir-validation-enabled
+              optional: true
+        - name: OAUTH2_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: amr-engine-config
+              key: oauth2-enabled
+              optional: true
+        - name: OAUTH2_ISSUER_URL
+          valueFrom:
+            configMapKeyRef:
+              name: amr-engine-config
+              key: oauth2-issuer-url
+              optional: true
+        - name: OAUTH2_AUDIENCE
+          valueFrom:
+            configMapKeyRef:
+              name: amr-engine-config
+              key: oauth2-audience
+              optional: true
+        - name: MTLS_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: amr-engine-config
+              key: mtls-enabled
+              optional: true
+        - name: ADMIN_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: amr-engine-secrets
+              key: admin-token
+              optional: true
+        
+        # Resource limits and requests
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        
+        # Security context for container
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1001
+        
+        # Health checks
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+        
+        # Startup probe to handle slow starts
+        startupProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 30
+        
+        # Volume mounts
+        volumeMounts:
+        - name: tmp-volume
+          mountPath: /tmp
+        - name: cache-volume
+          mountPath: /app/.cache
+        - name: mtls-certs
+          mountPath: /etc/ssl/certs/mtls
+          readOnly: true
+      
+      # Volumes
+      volumes:
+      - name: tmp-volume
+        emptyDir: {}
+      - name: cache-volume
+        emptyDir: {}
+      - name: mtls-certs
+        secret:
+          secretName: amr-engine-mtls-certs
+          optional: true
+      
+      # Deployment strategy
+      strategy:
+        type: RollingUpdate
+        rollingUpdate:
+          maxSurge: 1
+          maxUnavailable: 0
+      
+      # Restart policy
+      restartPolicy: Always
+      
+      # DNS policy
+      dnsPolicy: ClusterFirst
+      
+      # Termination grace period
+      terminationGracePeriodSeconds: 30

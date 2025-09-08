@@ -154,7 +154,7 @@ class Classifier:
                     antibiotic=item.antibiotic,
                     method=item.method,
                     input=item.model_dump(exclude_none=True),
-                    decision="RR",
+                    decision="Requires Review",
                     reason="Missing disc zone diameter",
                     ruleVersion=rule.version or ruleset.version,
                 )

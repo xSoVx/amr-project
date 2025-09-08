@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: amr-engine-config
+  labels:
+    app: amr-engine
+data:
+  # FHIR Configuration
+  fhir-profile-pack: "Base"
+  fhir-validation-enabled: "true"
+  
+  # OAuth2 Configuration
+  oauth2-enabled: "false"
+  oauth2-issuer-url: ""
+  oauth2-audience: ""
+  
+  # mTLS Configuration
+  mtls-enabled: "false"
+  
+  # Logging Configuration
+  log-level: "INFO"
