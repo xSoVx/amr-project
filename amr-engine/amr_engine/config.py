@@ -34,6 +34,17 @@ class Settings(BaseSettings):
     MTLS_CA_CERT_PATH: Optional[str] = None
     MTLS_CLIENT_CERT_PATH: Optional[str] = None
     MTLS_CLIENT_KEY_PATH: Optional[str] = None
+    
+    # Redis Cache Configuration
+    REDIS_ENABLED: bool = False
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    REDIS_DB: int = 0
+    REDIS_PASSWORD: Optional[str] = None
+    REDIS_MAX_CONNECTIONS: int = 20
+    REDIS_SOCKET_TIMEOUT: int = 5
+    CACHE_DEFAULT_TTL: int = 3600  # 1 hour
+    CACHE_RULE_TTL: int = 7200  # 2 hours
 
     def rules_paths(self) -> list[Path]:
         p = Path(self.AMR_RULES_PATH)

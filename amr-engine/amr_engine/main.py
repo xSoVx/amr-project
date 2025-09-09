@@ -11,6 +11,12 @@ from .api.routes import router
 from .config import get_settings
 from .core.exceptions import FHIRValidationError, RulesValidationError
 try:
+    from .cache.redis_cache import init_cache
+    HAS_REDIS_CACHE = True
+except ImportError:
+    HAS_REDIS_CACHE = False
+    def init_cache(*args, **kwargs): return None
+try:
     from .core.tracing import init_tracing, get_tracer
     HAS_TRACING = True
     TRACING_ERROR = None
@@ -39,6 +45,23 @@ def create_app() -> FastAPI:
         )
     else:
         logger.warning(f"OpenTelemetry tracing not available: {TRACING_ERROR}")
+    
+    # Initialize Redis cache if enabled and available
+    if HAS_REDIS_CACHE and settings.REDIS_ENABLED:
+        try:
+            cache_manager = init_cache(
+                host=settings.REDIS_HOST,
+                port=settings.REDIS_PORT,
+                password=settings.REDIS_PASSWORD,
+                default_ttl=settings.CACHE_DEFAULT_TTL,
+                max_connections=settings.REDIS_MAX_CONNECTIONS,
+                socket_timeout=settings.REDIS_SOCKET_TIMEOUT
+            )
+            logger.info("Redis caching initialized successfully")
+        except Exception as e:
+            logger.warning(f"Redis cache initialization failed: {e} - running without cache")
+    else:
+        logger.info("Redis caching disabled or unavailable")
     
     app = FastAPI(
         title="AMR Classification Engine",

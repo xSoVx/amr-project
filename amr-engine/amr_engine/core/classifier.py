@@ -7,6 +7,7 @@ from .reasoning import disc_reason, mic_reason
 from .rules_loader import Rule, RulesLoader
 from .schemas import ClassificationInput, ClassificationResult
 from .expert_rules import expert_rule_engine
+from ..cache.redis_cache import get_cache_manager
 try:
     from .tracing import get_tracer
     HAS_TRACING = True
@@ -42,8 +43,9 @@ logger = logging.getLogger(__name__)
 
 
 class Classifier:
-    def __init__(self, loader: RulesLoader) -> None:
+    def __init__(self, loader: RulesLoader, enable_cache: bool = True) -> None:
         self.loader = loader
+        self.cache_manager = get_cache_manager() if enable_cache else None
 
     @get_tracer().trace_classification()
     def classify(self, item: ClassificationInput) -> ClassificationResult:
@@ -56,6 +58,15 @@ class Classifier:
             method=item.method or "unknown",
             specimen_id=item.specimenId or "unknown"
         )
+        
+        # Try cache first if enabled
+        if self.cache_manager and self.cache_manager._enabled:
+            cached_result = self._get_cached_classification(item)
+            if cached_result:
+                logger.debug(f"Cache hit for classification: {item.organism}/{item.antibiotic}")
+                tracer.add_span_attributes(cache_hit=True)
+                return cached_result
+            tracer.add_span_attributes(cache_hit=False)
         
         # Validate features for expert rules
         feature_warnings = expert_rule_engine.validate_features_for_rules(item)
@@ -147,7 +158,7 @@ class Classifier:
             if feature_warnings:
                 final_reason += f"; Warnings: {'; '.join(feature_warnings)}"
             
-            return ClassificationResult(
+            result = ClassificationResult(
                 specimenId=item.specimenId,
                 organism=item.organism,
                 antibiotic=item.antibiotic,
@@ -157,6 +168,10 @@ class Classifier:
                 reason=final_reason,
                 ruleVersion=rule.version or ruleset.version,
             )
+            
+            # Cache successful MIC classification
+            self._cache_classification_result(item, result)
+            return result
 
         if rule.method == "DISC":
             if item.disc_zone_mm is None:
@@ -193,7 +208,7 @@ class Classifier:
             if feature_warnings:
                 final_reason += f"; Warnings: {'; '.join(feature_warnings)}"
             
-            return ClassificationResult(
+            result = ClassificationResult(
                 specimenId=item.specimenId,
                 organism=item.organism,
                 antibiotic=item.antibiotic,
@@ -203,6 +218,10 @@ class Classifier:
                 reason=final_reason,
                 ruleVersion=rule.version or ruleset.version,
             )
+            
+            # Cache successful DISC classification
+            self._cache_classification_result(item, result)
+            return result
 
         return ClassificationResult(
             specimenId=item.specimenId,
@@ -227,4 +246,71 @@ class Classifier:
                 if bool(item.features.get("esbl")) is True:
                     return True
         return False
+
+    def _get_cached_classification(self, item: ClassificationInput) -> Optional[ClassificationResult]:
+        """Retrieve cached classification result if available"""
+        if not self.cache_manager or not self.cache_manager._enabled:
+            return None
+            
+        try:
+            # Extract cache parameters
+            organism = item.organism or ""
+            antibiotic = item.antibiotic or ""
+            method = item.method or ""
+            
+            # Get measurement value
+            if method == 'MIC':
+                value = item.mic_mg_L or 0
+            elif method == 'DISC':
+                value = item.disc_zone_mm or 0
+            else:
+                return None
+                
+            # Get rule version (fallback to default)
+            ruleset = self.loader.ruleset or self.loader.load()
+            rule_version = ruleset.version or "unknown"
+            
+            # Try cache lookup
+            cached_result = self.cache_manager.cache.get_cached_classification(
+                organism, antibiotic, method, value, rule_version
+            )
+            
+            if cached_result:
+                # Convert dict back to ClassificationResult
+                return ClassificationResult(**cached_result)
+                
+        except Exception as e:
+            logger.warning(f"Cache lookup failed: {e}")
+            
+        return None
+
+    def _cache_classification_result(self, item: ClassificationInput, result: ClassificationResult) -> None:
+        """Store classification result in cache"""
+        if not self.cache_manager or not self.cache_manager._enabled:
+            return
+            
+        try:
+            # Extract cache parameters
+            organism = item.organism or ""
+            antibiotic = item.antibiotic or ""
+            method = item.method or ""
+            
+            # Get measurement value
+            if method == 'MIC':
+                value = item.mic_mg_L or 0
+            elif method == 'DISC':
+                value = item.disc_zone_mm or 0
+            else:
+                return
+                
+            rule_version = result.ruleVersion or "unknown"
+            
+            # Store in cache
+            self.cache_manager.cache.cache_classification_result(
+                organism, antibiotic, method, value, rule_version,
+                result.model_dump(), ttl=3600  # 1 hour TTL
+            )
+            
+        except Exception as e:
+            logger.warning(f"Cache storage failed: {e}")
 
