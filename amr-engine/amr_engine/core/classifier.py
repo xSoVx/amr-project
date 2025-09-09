@@ -19,11 +19,23 @@ except ImportError:
                 return decorator
             def add_span_attributes(self, **kwargs): pass
             def start_span(self, *args, **kwargs): 
-                from contextlib import nullcontext
-                return nullcontext()
+                from contextlib import contextmanager
+                @contextmanager
+                def dummy_span():
+                    class DummySpan:
+                        def set_attribute(self, key, value): pass
+                        def add_event(self, event, attributes=None): pass
+                    yield DummySpan()
+                return dummy_span()
             def trace_rule_evaluation(self, *args, **kwargs):
-                from contextlib import nullcontext
-                return nullcontext()
+                from contextlib import contextmanager
+                @contextmanager
+                def dummy_span():
+                    class DummySpan:
+                        def set_attribute(self, key, value): pass
+                        def add_event(self, event, attributes=None): pass
+                    yield DummySpan()
+                return dummy_span()
         return DummyTracer()
 
 logger = logging.getLogger(__name__)
