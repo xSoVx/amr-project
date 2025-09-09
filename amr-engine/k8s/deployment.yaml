@@ -83,9 +83,9 @@ spec:
         - name: ADMIN_TOKEN
           valueFrom:
             secretKeyRef:
-              name: amr-engine-secrets
+              name: amr-admin-credentials
               key: admin-token
-              optional: true
+              optional: false
         
         # Resource limits and requests
         resources:
