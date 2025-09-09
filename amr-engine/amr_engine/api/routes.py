@@ -20,6 +20,12 @@ from ..core.hl7v2_parser import parse_hl7v2_message
 from ..core.rules_loader import RulesLoader
 from ..core.schemas import ClassificationInput, ClassificationResult, OperationOutcome, ProblemDetails, OperationOutcomeIssue
 from .deps import admin_auth, require_admin_auth
+try:
+    from ..cache.redis_cache import get_cache_manager
+    HAS_CACHE = True
+except ImportError:
+    HAS_CACHE = False
+    def get_cache_manager(): return None
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +81,111 @@ def healthz() -> dict:
 )
 def health() -> dict:
     """Health check endpoint to verify service availability."""
-    return {"status": "healthy"}
+    health_info = {"status": "healthy"}
+    
+    # Add cache health information if available
+    if HAS_CACHE:
+        try:
+            cache_manager = get_cache_manager()
+            if cache_manager:
+                cache_health = cache_manager.get_cache_health()
+                health_info["cache"] = cache_health
+        except Exception as e:
+            health_info["cache"] = {"enabled": False, "error": str(e)}
+    else:
+        health_info["cache"] = {"enabled": False, "status": "unavailable"}
+    
+    return health_info
+
+
+@router.post(
+    "/validate/fhir",
+    tags=["validation"],
+    summary="Validate FHIR Bundle/Resources",
+    description="""
+    **Validate FHIR Bundle or individual resources against profile packs**
+    
+    Supports comprehensive validation against:
+    - **US-Core** profiles for US healthcare interoperability
+    - **IL-Core** profiles for Israeli healthcare standards  
+    - **IPS** (International Patient Summary) profiles
+    - **Base** FHIR R4 profiles
+    
+    ### Features:
+    - Structural validation (cardinality, data types)
+    - Terminology validation (LOINC, SNOMED CT)
+    - MustSupport element checking
+    - Profile-specific constraints
+    
+    ### Profile Pack Selection:
+    - Header: `X-FHIR-Profile-Pack: US-Core|IL-Core|IPS|Base`
+    - Query parameter: `profile_pack=US-Core`
+    - Default: Configured profile pack
+    """,
+    responses={
+        200: {
+            "description": "Validation completed",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "bundle_valid": True,
+                        "profile_pack": "US-Core",
+                        "total_resources": 3,
+                        "valid_resources": 3,
+                        "invalid_resources": 0,
+                        "summary_errors": [],
+                        "summary_warnings": [],
+                        "recommendations": []
+                    }
+                }
+            }
+        },
+        400: {
+            "description": "Invalid FHIR bundle or validation error"
+        }
+    }
+)
+async def validate_fhir_bundle(
+    request: Request,
+    profile_pack: Optional[str] = None
+) -> Dict[str, Any]:
+    """Validate FHIR Bundle or resources against specified profile pack."""
+    
+    try:
+        # Get bundle from request body
+        bundle = await request.json()
+        
+        # Determine profile pack
+        selected_profile_pack = _get_profile_pack_selection(request, profile_pack)
+        
+        # Create profile validator for selected pack
+        validator = FHIRProfileValidator(profile_pack=selected_profile_pack)
+        
+        # Perform validation
+        results = await validator.validate_bundle_against_profile_pack(bundle)
+        
+        # Add validation summary
+        results["validation_summary"] = validator.get_validation_summary()
+        
+        return results
+        
+    except json.JSONDecodeError as e:
+        problem = ProblemDetails(
+            type="https://amr-engine.com/problems/json-parse-error",
+            title="JSON Parsing Error",
+            status=400,
+            detail=f"Invalid JSON payload: {str(e)}"
+        )
+        raise HTTPException(status_code=400, detail=problem.model_dump())
+        
+    except Exception as e:
+        problem = ProblemDetails(
+            type="https://amr-engine.com/problems/validation-error",
+            title="FHIR Validation Error", 
+            status=400,
+            detail=f"Validation failed: {str(e)}"
+        )
+        raise HTTPException(status_code=400, detail=problem.model_dump())
 
 
 @router.get(
