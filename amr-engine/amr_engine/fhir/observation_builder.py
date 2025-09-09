@@ -153,7 +153,7 @@ class AMRObservationBuilder:
         performer_ref: Optional[str] = None,
         effective_datetime: Optional[datetime] = None,
         interpretation_comment: Optional[str] = None
-    ) -> Observation:
+    ) -> 'Observation':
         """
         Build FHIR Observation for AMR susceptibility testing
         
@@ -270,7 +270,7 @@ class AMRObservationBuilder:
         method: str = "MALDI-TOF",
         performer_ref: Optional[str] = None,
         effective_datetime: Optional[datetime] = None
-    ) -> Observation:
+    ) -> 'Observation':
         """Build separate organism identification observation"""
         observation_id = str(uuid.uuid4())
         effective_time = effective_datetime or datetime.now(timezone.utc)
@@ -346,7 +346,7 @@ class AMRObservationBuilder:
         
         return observation
     
-    def _build_susceptibility_result_coding(self, result: Union[SusceptibilityResult, str]) -> CodeableConcept:
+    def _build_susceptibility_result_coding(self, result: Union[SusceptibilityResult, str]) -> 'CodeableConcept':
         """Build susceptibility result coding"""
         result_str = result.value if isinstance(result, SusceptibilityResult) else str(result)
         
@@ -373,7 +373,7 @@ class AMRObservationBuilder:
             text=mapping["display"]
         )
     
-    def _build_organism_component(self, organism: str) -> Optional[ObservationComponent]:
+    def _build_organism_component(self, organism: str) -> Optional['ObservationComponent']:
         """Build organism component with SNOMED CT coding if available"""
         organism_coding = self._build_organism_coding(organism)
         
@@ -390,7 +390,7 @@ class AMRObservationBuilder:
             valueCodeableConcept=organism_coding
         )
     
-    def _build_organism_coding(self, organism: str) -> CodeableConcept:
+    def _build_organism_coding(self, organism: str) -> 'CodeableConcept':
         """Build organism coding with SNOMED CT if available"""
         organism_lower = organism.lower().strip()
         snomed_info = self.ORGANISM_CODES.get(organism_lower)
@@ -409,7 +409,7 @@ class AMRObservationBuilder:
             text=organism
         )
     
-    def _build_antibiotic_component(self, antibiotic: str) -> Optional[ObservationComponent]:
+    def _build_antibiotic_component(self, antibiotic: str) -> Optional['ObservationComponent']:
         """Build antibiotic component with ATC coding if available"""
         antibiotic_coding = self._build_antibiotic_coding(antibiotic)
         
@@ -426,7 +426,7 @@ class AMRObservationBuilder:
             valueCodeableConcept=antibiotic_coding
         )
     
-    def _build_antibiotic_coding(self, antibiotic: str) -> CodeableConcept:
+    def _build_antibiotic_coding(self, antibiotic: str) -> 'CodeableConcept':
         """Build antibiotic coding with ATC if available"""
         antibiotic_lower = antibiotic.lower().strip()
         atc_info = self.ANTIBIOTIC_CODES.get(antibiotic_lower)
@@ -444,7 +444,7 @@ class AMRObservationBuilder:
             text=antibiotic
         )
     
-    def _build_method_component(self, method: Union[TestMethod, str]) -> Optional[ObservationComponent]:
+    def _build_method_component(self, method: Union[TestMethod, str]) -> Optional['ObservationComponent']:
         """Build testing method component"""
         method_str = method.value if isinstance(method, TestMethod) else str(method)
         
@@ -471,7 +471,7 @@ class AMRObservationBuilder:
             valueString=display
         )
     
-    def _build_breakpoint_component(self, standard: Union[BreakpointStandard, str]) -> Optional[ObservationComponent]:
+    def _build_breakpoint_component(self, standard: Union[BreakpointStandard, str]) -> Optional['ObservationComponent']:
         """Build breakpoint standard component"""
         standard_str = standard.value if isinstance(standard, BreakpointStandard) else str(standard)
         
@@ -488,7 +488,7 @@ class AMRObservationBuilder:
             valueString=standard_str
         )
     
-    def _build_mic_component(self, mic_value: float, unit: str = "mg/L") -> Optional[ObservationComponent]:
+    def _build_mic_component(self, mic_value: float, unit: str = "mg/L") -> Optional['ObservationComponent']:
         """Build MIC value component"""
         return ObservationComponent(
             code=CodeableConcept(
@@ -508,7 +508,7 @@ class AMRObservationBuilder:
             )
         )
     
-    def _build_zone_component(self, zone_diameter: int, unit: str = "mm") -> Optional[ObservationComponent]:
+    def _build_zone_component(self, zone_diameter: int, unit: str = "mm") -> Optional['ObservationComponent']:
         """Build zone diameter component"""
         return ObservationComponent(
             code=CodeableConcept(
@@ -536,7 +536,7 @@ class AMRObservationBuilder:
         susceptibility_results: List[Dict[str, Any]],
         performer_ref: Optional[str] = None,
         effective_datetime: Optional[datetime] = None
-    ) -> List[Observation]:
+    ) -> List['Observation']:
         """
         Build collection of related AMR observations
         

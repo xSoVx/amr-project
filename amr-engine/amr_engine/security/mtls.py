@@ -12,7 +12,7 @@ from typing import List, Optional, Dict, Any
 from pathlib import Path
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
-from cryptography.x509.verification import PolicyBuilder, StoreBuilder
+from cryptography.x509.verification import PolicyBuilder
 from cryptography.x509.oid import NameOID, ExtensionOID
 
 
@@ -128,10 +128,9 @@ class MTLSValidator:
     def _validate_cert_chain(self, cert: x509.Certificate) -> bool:
         """Validate certificate against CA chain"""
         try:
-            # Build certificate store
-            store_builder = StoreBuilder()
-            store_builder = store_builder.add_certs([self._ca_cert])
-            store = store_builder.build()
+            # Build certificate store with CA certificate
+            from cryptography.x509.verification import Store
+            store = Store([self._ca_cert])
             
             # Build validation policy
             builder = PolicyBuilder().store(store)

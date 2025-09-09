@@ -18,7 +18,7 @@ import logging
 from typing import Optional, List, Dict, Any, Union, Set
 from enum import Enum
 from decimal import Decimal, InvalidOperation
-from pydantic import BaseModel, Field, validator, ValidationError, root_validator
+from pydantic import BaseModel, Field, field_validator, ValidationError, model_validator
 
 logger = logging.getLogger(__name__)
 
@@ -263,27 +263,27 @@ class AMRClassificationRequest(BaseModel):
     specimen_id: Optional[str] = Field(
         None,
         max_length=50,
-        regex=r'^[A-Za-z0-9\-_\.]+$',
+        pattern=r'^[A-Za-z0-9\-_\.]+$',
         description="Specimen identifier (alphanumeric, dash, underscore, dot only)"
     )
     
     patient_id: Optional[str] = Field(
         None,
         max_length=50,
-        regex=r'^[A-Za-z0-9\-_\.]+$',
+        pattern=r'^[A-Za-z0-9\-_\.]+$',
         description="Patient identifier (alphanumeric, dash, underscore, dot only)"
     )
     
     laboratory_id: Optional[str] = Field(
         None,
         max_length=50,
-        regex=r'^[A-Za-z0-9\-_\.]+$',
+        pattern=r'^[A-Za-z0-9\-_\.]+$',
         description="Laboratory identifier"
     )
     
     test_date: Optional[str] = Field(
         None,
-        regex=r'^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}.*)?$',
+        pattern=r'^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}.*)?$',
         description="Test date in ISO format"
     )
     
@@ -296,25 +296,28 @@ class AMRClassificationRequest(BaseModel):
     
     priority: Optional[str] = Field(
         "routine",
-        regex=r'^(routine|urgent|stat)$',
+        pattern=r'^(routine|urgent|stat)$',
         description="Test priority level"
     )
     
-    @validator('organism', pre=True)
+    @field_validator('organism', mode='before')
+    @classmethod
     def validate_organism_field(cls, v):
         """Validate organism using OrganismValidator"""
         if v is None:
             raise ValueError("Organism is required")
         return OrganismValidator.validate_organism_name(v)
     
-    @validator('antibiotic', pre=True) 
+    @field_validator('antibiotic', mode='before')
+    @classmethod
     def validate_antibiotic_field(cls, v):
         """Validate antibiotic using AntibioticValidator"""
         if v is None:
             raise ValueError("Antibiotic is required")
         return AntibioticValidator.validate_antibiotic_name(v)
     
-    @validator('mic_value')
+    @field_validator('mic_value')
+    @classmethod
     def validate_mic_value_precision(cls, v):
         """Validate MIC value precision and clinical ranges"""
         if v is None:
@@ -345,7 +348,8 @@ class AMRClassificationRequest(BaseModel):
         except (InvalidOperation, TypeError):
             raise ValueError("Invalid MIC value format")
     
-    @validator('zone_diameter')
+    @field_validator('zone_diameter')
+    @classmethod
     def validate_zone_diameter_range(cls, v):
         """Validate zone diameter clinical ranges"""
         if v is None:
@@ -364,7 +368,8 @@ class AMRClassificationRequest(BaseModel):
         
         return v
     
-    @validator('clinical_indication', pre=True)
+    @field_validator('clinical_indication', mode='before')
+    @classmethod
     def validate_clinical_indication(cls, v):
         """Validate clinical indication text"""
         if v is None:
@@ -386,12 +391,12 @@ class AMRClassificationRequest(BaseModel):
         
         return cleaned
     
-    @root_validator
-    def validate_method_result_consistency(cls, values):
+    @model_validator(mode='after')
+    def validate_method_result_consistency(self):
         """Validate consistency between method and provided results"""
-        method = values.get('method')
-        mic_value = values.get('mic_value')
-        zone_diameter = values.get('zone_diameter')
+        method = self.method
+        mic_value = self.mic_value
+        zone_diameter = self.zone_diameter
         
         if method in [TestMethod.MIC, TestMethod.ETEST, TestMethod.AUTOMATED_SYSTEM]:
             if mic_value is None:
@@ -405,7 +410,7 @@ class AMRClassificationRequest(BaseModel):
         if mic_value is None and zone_diameter is None:
             raise ValueError("Either MIC value or zone diameter must be provided")
         
-        return values
+        return self
     
     def get_validation_summary(self) -> Dict[str, Any]:
         """Get summary of validation results and metadata"""
@@ -448,17 +453,18 @@ class BulkClassificationRequest(BaseModel):
     batch_id: Optional[str] = Field(
         None,
         max_length=50,
-        regex=r'^[A-Za-z0-9\-_\.]+$',
+        pattern=r'^[A-Za-z0-9\-_\.]+$',
         description="Batch identifier for tracking"
     )
     
     priority: Optional[str] = Field(
         "routine",
-        regex=r'^(routine|urgent|stat)$',
+        pattern=r'^(routine|urgent|stat)$',
         description="Batch priority level"
     )
     
-    @validator('requests')
+    @field_validator('requests')
+    @classmethod
     def validate_batch_consistency(cls, v):
         """Validate consistency across batch requests"""
         if not v:
