@@ -21,7 +21,8 @@
       "Bash(chmod:*)",
       "Bash(timeout:*)",
       "Bash(docker logs:*)",
-      "Bash(REDIS_ENABLED=true python -m uvicorn amr_engine.main:app --host 0.0.0.0 --port 8082)"
+      "Bash(REDIS_ENABLED=true python -m uvicorn amr_engine.main:app --host 0.0.0.0 --port 8082)",
+      "Bash(mkdir:*)"
     ],
     "deny": [],
     "ask": []

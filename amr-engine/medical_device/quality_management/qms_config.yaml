@@ -1,0 +1,139 @@
+# QMS Configuration for AMR Classification Engine
+# ISO 13485:2016 Quality Management System
+
+medical_device_classification:
+  device_class: "Class IIa"
+  software_safety_class: "Class B"
+  intended_use: "Clinical decision support for antimicrobial resistance classification"
+  regulatory_pathway: "FDA 510(k) / EU MDR"
+
+quality_processes:
+  document_control:
+    procedure: "QP-001 Document Control"
+    responsibility: "Quality Manager"
+    review_cycle: "Annual"
+    version_control: "Semantic versioning (MAJOR.MINOR.PATCH)"
+    approval_matrix:
+      - role: "Quality Manager"
+        authority: "Quality procedures"
+      - role: "Technical Lead" 
+        authority: "Technical specifications"
+      - role: "Clinical Lead"
+        authority: "Clinical documentation"
+  
+  design_controls:
+    procedure: "QP-002 Design Controls"
+    phases: 
+      - "Planning"
+      - "Inputs" 
+      - "Outputs"
+      - "Review"
+      - "Verification"
+      - "Validation"
+      - "Transfer"
+    gate_criteria:
+      planning: "Design plan approved by management"
+      inputs: "User needs and requirements documented and approved"
+      outputs: "Design outputs meet inputs and regulatory requirements"
+      review: "Design review completed with no unresolved issues"
+      verification: "Design outputs verified against inputs"
+      validation: "Design validated for intended use"
+      transfer: "Production procedures established and verified"
+    
+  risk_management:
+    procedure: "QP-003 Risk Management"
+    standard: "ISO 14971:2019"
+    review_frequency: "Quarterly"
+    risk_matrix:
+      severity_levels:
+        1: "Negligible"
+        2: "Minor"
+        3: "Serious"
+        4: "Critical"
+        5: "Catastrophic"
+      probability_levels:
+        1: "Improbable"
+        2: "Remote"
+        3: "Occasional"
+        4: "Probable"
+        5: "Frequent"
+      acceptability_criteria:
+        low_risk: "1-6"
+        medium_risk: "7-15"
+        high_risk: "16-25"
+
+  management_review:
+    frequency: "Quarterly"
+    participants:
+      - "CEO/General Manager"
+      - "Quality Manager"
+      - "Technical Lead"
+      - "Clinical Affairs Manager"
+      - "Regulatory Affairs Manager"
+    agenda_items:
+      - "Quality system performance"
+      - "Customer feedback and complaints"
+      - "Audit results and CAPAs"
+      - "Risk management updates"
+      - "Regulatory compliance status"
+      - "Resource adequacy"
+      - "Improvement opportunities"
+
+software_lifecycle:
+  standard: "IEC 62304:2006"
+  safety_classification: "Class B"
+  development_phases:
+    - "Planning"
+    - "Requirements Analysis"
+    - "Architectural Design"
+    - "Detailed Design"
+    - "Implementation"
+    - "Integration and Integration Testing"
+    - "System Testing"
+    - "Release"
+  configuration_management:
+    version_control: "Git with semantic versioning"
+    branching_strategy: "GitFlow"
+    change_control: "Pull request approval process"
+    traceability: "Requirements to code to test mapping"
+
+post_market_surveillance:
+  procedure: "QP-004 Post-Market Surveillance"
+  activities:
+    - "Adverse event monitoring and reporting"
+    - "Performance trend analysis"
+    - "User feedback collection"
+    - "Literature surveillance"
+    - "Corrective and preventive actions"
+  review_schedule:
+    safety_review: "Weekly"
+    performance_review: "Monthly"
+    comprehensive_review: "Quarterly"
+    annual_report: "Annually"
+
+training_competency:
+  procedure: "QP-005 Training and Competency"
+  requirements:
+    all_personnel: "ISO 13485 awareness training"
+    quality_personnel: "Quality management system training"
+    technical_personnel: "Software development lifecycle training"
+    clinical_personnel: "Clinical evaluation and risk management"
+  frequency: "Annual with updates as needed"
+  competency_assessment: "Written examination and practical demonstration"
+
+supplier_control:
+  procedure: "QP-006 Supplier Control"
+  categories:
+    critical_suppliers: "Suppliers providing software components affecting safety"
+    approved_suppliers: "Pre-qualified suppliers for non-critical components"
+  evaluation_criteria:
+    - "Quality management system certification"
+    - "Technical capability assessment"
+    - "Delivery performance"
+    - "Regulatory compliance"
+  monitoring:
+    frequency: "Annual"
+    metrics: 
+      - "On-time delivery"
+      - "Quality performance"
+      - "Non-conformance rate"
