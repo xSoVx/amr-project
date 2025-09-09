@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.11-alpine3.18
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -6,15 +6,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     UVICORN_WORKERS=2 \
     PORT=8080
 
-RUN adduser --disabled-password --gecos '' appuser \
- && apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    ca-certificates \
+# Install system dependencies
+RUN apk add --no-cache \
     gcc \
-    g++ \
+    musl-dev \
     libffi-dev \
-    libssl-dev \
- && rm -rf /var/lib/apt/lists/*
+    openssl-dev \
+    curl \
+    && adduser -D -s /bin/sh appuser
 
 WORKDIR /app
 
@@ -37,21 +36,20 @@ HEALTHCHECK --interval=30s --timeout=3s --retries=3 CMD curl -f http://127.0.0.1
 CMD ["uvicorn", "amr_engine.main:app", "--host", "0.0.0.0", "--port", "8080"]
 
 # Test stage
-FROM python:3.11-slim as test
+FROM python:3.11-alpine3.18 AS test
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1
 
-RUN adduser --disabled-password --gecos '' appuser \
- && apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    ca-certificates \
+# Install system dependencies
+RUN apk add --no-cache \
     gcc \
-    g++ \
+    musl-dev \
     libffi-dev \
-    libssl-dev \
- && rm -rf /var/lib/apt/lists/*
+    openssl-dev \
+    curl \
+    && adduser -D -s /bin/sh appuser
 
 WORKDIR /app
 

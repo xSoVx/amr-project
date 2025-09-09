@@ -6,7 +6,8 @@ services:
     image: amr-engine:latest
     environment:
       - AMR_RULES_PATH=amr_engine/rules/eucast_v_2025_1.yaml
-      - ADMIN_TOKEN=change-me
+      # ADMIN_TOKEN should be set via secrets or environment variable
+      # - ADMIN_TOKEN=secure-token-here
       - LOG_LEVEL=INFO
     ports:
       - "8081:8080"
@@ -19,5 +20,6 @@ services:
     command: ["pytest", "-q", "--maxfail=1", "--disable-warnings"]
     environment:
       - AMR_RULES_PATH=amr_engine/rules/eucast_v_2025_1.yaml
-      - ADMIN_TOKEN=change-me
+      # ADMIN_TOKEN should be set via secrets or environment variable
+      # - ADMIN_TOKEN=secure-token-here
 
