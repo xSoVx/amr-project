@@ -274,6 +274,16 @@ class PseudonymizationMiddleware(BaseHTTPMiddleware):
         # Create new scope with modified body
         scope = original_request.scope.copy()
         
+        # Update headers in scope to reflect new content length
+        headers = list(scope.get("headers", []))
+        
+        # Remove old content-length header if present
+        headers = [(name, value) for name, value in headers if name != b"content-length"]
+        
+        # Add new content-length header
+        headers.append((b"content-length", str(len(new_body)).encode()))
+        scope["headers"] = headers
+        
         # Create async generator for new body
         async def new_receive():
             return {
@@ -283,20 +293,7 @@ class PseudonymizationMiddleware(BaseHTTPMiddleware):
             }
         
         # Create new request with modified scope and receive
-        new_request = Request(scope, new_receive)
-        
-        # Copy headers and other attributes
-        for key, value in original_request.headers.items():
-            if key.lower() != "content-length":  # Update content-length
-                new_request.headers.__dict__["_headers"].append((key.encode(), value.encode()))
-        
-        # Update content-length header
-        new_request.headers.__dict__["_headers"].append((
-            b"content-length", 
-            str(len(new_body)).encode()
-        ))
-        
-        return new_request
+        return Request(scope, new_receive)
     
     async def _log_pseudonymization_event(
         self, 

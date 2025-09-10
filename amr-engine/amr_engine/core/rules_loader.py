@@ -57,9 +57,13 @@ class RulesLoader:
         self._validator: Optional[Draft202012Validator] = None
         self.ruleset: Optional[Ruleset] = None
 
-        # Register SIGHUP handler only on Unix systems
+        # Register SIGHUP handler only on Unix systems and in main thread
         if hasattr(signal, 'SIGHUP'):
-            signal.signal(signal.SIGHUP, self._on_sighup)
+            try:
+                signal.signal(signal.SIGHUP, self._on_sighup)
+            except ValueError:
+                # Signal handling only works in main thread of main interpreter
+                logger.debug("SIGHUP handler not registered - not running in main thread")
 
     def _on_sighup(self, signum: int, frame: Any) -> None:  # pragma: no cover (signal path)
         logger.info("SIGHUP received: reloading rules")

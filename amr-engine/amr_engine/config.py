@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     PSEUDONYMIZATION_ENABLED: bool = True
     PSEUDONYM_SALT_KEY: Optional[str] = None
     PSEUDONYM_ENCRYPTION_KEY: Optional[str] = None
-    PSEUDONYM_STORAGE_PATH: str = "./pseudonym_storage"
+    PSEUDONYM_STORAGE_PATH: str = "/tmp/pseudonym_storage"
     PSEUDONYM_DUMMY_ID_PREFIX: str = "PSY"
     PSEUDONYM_DUMMY_ID_LENGTH: int = 12
 
