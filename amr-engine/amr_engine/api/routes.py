@@ -454,7 +454,7 @@ async def classify(request: Request, payload: Any, profile_pack: Optional[str] =
         )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=problem,
+            detail=problem.model_dump(),
             headers={"Content-Type": "application/problem+json"}
         )
 
@@ -708,13 +708,30 @@ def rules_reload(admin_user: dict = Depends(require_admin_auth)) -> dict:
         }
     }
 )
-async def classify_fhir(request: Request, payload: Any, profile_pack: Optional[str] = None) -> List[ClassificationResult]:
+async def classify_fhir(request: Request, profile_pack: Optional[str] = None) -> List[ClassificationResult]:
     """
     Dedicated endpoint for FHIR Bundle and Observation processing.
     
     Parses FHIR R4 resources and extracts antimicrobial susceptibility
     test results for classification.
     """
+    # Read FHIR data from request body
+    payload_bytes = await request.body()
+    payload_str = payload_bytes.decode('utf-8')
+    
+    # Parse JSON payload
+    try:
+        import json
+        payload = json.loads(payload_str)
+    except json.JSONDecodeError as e:
+        problem = ProblemDetails(
+            type="https://amr-engine.com/problems/json-parse-error",
+            title="JSON Parsing Error", 
+            status=400,
+            detail=f"Invalid JSON payload: {str(e)}"
+        )
+        raise HTTPException(status_code=400, detail=problem.model_dump())
+    
     loader = RulesLoader()
     classifier = Classifier(loader)
     
@@ -747,7 +764,7 @@ async def classify_fhir(request: Request, payload: Any, profile_pack: Optional[s
         )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=problem,
+            detail=problem.model_dump(),
             headers={"Content-Type": "application/problem+json"}
         )
     
@@ -939,7 +956,7 @@ async def classify_hl7v2(request: Request) -> List[ClassificationResult]:
         )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=problem,
+            detail=problem.model_dump(),
             headers={"Content-Type": "application/problem+json"}
         )
     
