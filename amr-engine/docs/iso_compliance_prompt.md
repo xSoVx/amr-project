@@ -221,7 +221,7 @@ class ClinicalEvaluationPlan:
             },
             "statistical_plan": {
                 "primary_analysis": "Concordance rate with 95% CI",
-                "secondary_analyses": "Subgroup analyses by organism/antibiotic",
+                "secondary_analyses": "Subrungroup analyses by organism/antibiotic",
                 "safety_analysis": "Descriptive analysis of adverse events"
             }
         }
