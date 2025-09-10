@@ -795,7 +795,9 @@ async def _parse_input(payload: Any, request: Request, profile_pack: Optional[st
     content_type = request.headers.get("content-type", "").lower()
     
     # Handle HL7v2 messages
-    if "hl7" in content_type or "x-application/hl7-v2+er7" in content_type:
+    if any(hl7_type in content_type for hl7_type in [
+        "hl7", "application/hl7-v2", "application/x-hl7", "x-application/hl7-v2+er7"
+    ]):
         if isinstance(payload, str):
             return parse_hl7v2_message(payload)
         else:
@@ -823,44 +825,59 @@ async def _parse_input(payload: Any, request: Request, profile_pack: Optional[st
     Processes HL7v2 messages containing microbiology results.
     Extracts OBR/OBX segments and classifies AMR test results.
     
+    ### Content-Type Support:
+    - `application/hl7-v2` (preferred)
+    - `text/plain` (HL7v2 text format)
+    - `application/x-hl7` (alternative)
+    
     ### Supported Segments:
     - **MSH**: Message header (required)
+    - **PID**: Patient identification
     - **OBR**: Observation request 
     - **OBX**: Observation result (antimicrobial susceptibility data)
     
     ### Message Format:
     - Standard HL7v2 pipe-delimited format
-    - Each segment on a new line
+    - Segments separated by \\r (carriage return) or \\n (newline)
     - Must start with MSH segment
     
     ### Example HL7v2 Message:
     ```
-    MSH|^~\\&|LAB|FACILITY|EMR|HOSPITAL|20240101120000||ORU^R01|12345|P|2.5
-    OBR|1|||MICRO^Microbiology|||||||||||||||||||F
-    OBX|1|ST|ORG^Organism||Escherichia coli||||||F
-    OBX|2|NM|MIC^Amoxicillin MIC||4.0|mg/L|||||F
+    MSH|^~\\&|LAB|FACILITY|EMR|HOSPITAL|20240101120000||ORU^R01|MSG12345|P|2.5\\r
+    PID|1||PATIENT123^^^MRN^MR||DOE^JOHN||||||||||||ACCT456\\r
+    OBR|1|||MICRO^Microbiology Culture||||||||||SPEC789|||||||||F\\r
+    OBX|1|ST|ORG^Organism||Escherichia coli||||||F\\r
+    OBX|2|NM|MIC^Ampicillin MIC||32|mg/L|R|||F\\r
+    OBX|3|NM|MIC^Ciprofloxacin MIC||0.5|mg/L|S|||F
+    ```
+    
+    ### Usage Example:
+    ```bash
+    curl -X POST "http://localhost:8080/classify/hl7v2" \\
+         -H "Content-Type: application/hl7-v2" \\
+         -d "MSH|^~\\&|LAB|FACILITY|EMR|HOSPITAL|20240101120000||ORU^R01|MSG12345|P|2.5\\rPID|1||PATIENT123|||DOE^JOHN\\rOBR|1|||MICRO^Microbiology\\rOBX|1|ST|ORG||Escherichia coli||||||F\\rOBX|2|NM|MIC^Ampicillin||32|mg/L|R|||F"
     ```
     """,
-    response_description="Extracted and classified AMR results",
+    response_description="Extracted and classified AMR results with pseudonymized identifiers",
     responses={
         200: {
             "description": "Successful HL7v2 processing and classification",
             "content": {
                 "application/json": {
                     "example": [{
-                        "specimenId": "12345",
+                        "specimenId": "FINAL-SP-A1B2C3D4",
                         "organism": "Escherichia coli",
-                        "antibiotic": "Amoxicillin",
+                        "antibiotic": "Ampicillin",
                         "method": "MIC", 
                         "input": {
                             "organism": "Escherichia coli",
-                            "antibiotic": "Amoxicillin",
+                            "antibiotic": "Ampicillin",
                             "method": "MIC",
-                            "mic_mg_L": 4.0,
-                            "specimenId": "12345"
+                            "mic_mg_L": 32.0,
+                            "specimenId": "FINAL-SP-A1B2C3D4"
                         },
-                        "decision": "S",
-                        "reason": "MIC 4.0 mg/L <= breakpoint 8.0 mg/L",
+                        "decision": "R",
+                        "reason": "MIC 32.0 mg/L > breakpoint 8.0 mg/L",
                         "ruleVersion": "EUCAST v2025.1"
                     }]
                 }
@@ -889,13 +906,17 @@ async def _parse_input(payload: Any, request: Request, profile_pack: Optional[st
         }
     }
 )
-def classify_hl7v2(request: Request, message: str) -> List[ClassificationResult]:
+async def classify_hl7v2(request: Request) -> List[ClassificationResult]:
     """
     Dedicated endpoint for HL7v2 message processing.
     
     Parses HL7v2 messages and extracts antimicrobial susceptibility 
     test results for classification.
     """
+    # Read HL7v2 message from request body
+    message_bytes = await request.body()
+    message = message_bytes.decode('utf-8')
+    
     loader = RulesLoader()
     classifier = Classifier(loader)
     
