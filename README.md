@@ -15,11 +15,14 @@
 
 ## 🆕 Latest Updates (v1.0.0 - Medical Device Compliance Release)
 
-### 🔒 **Enhanced Security & Authentication**
+### 🔒 **Enhanced Security & Privacy Protection**
+- **Patient Identifier Pseudonymization** - Cryptographic pseudonymization of PHI at entry point with HMAC-SHA256
 - **OAuth2 Bearer Authentication** - JWKS-based JWT validation with fallback to legacy tokens
 - **Mutual TLS (mTLS)** - Client certificate authentication with CA validation
 - **RFC 7807 Error Responses** - Standardized Problem Details with embedded FHIR OperationOutcome
 - **PII Redaction** - Automatic patient/specimen identifier redaction in structured logs
+- **Encrypted Mapping Storage** - AES encryption for bidirectional identifier mapping
+- **HIPAA-Compliant Audit Trails** - All audit logs use pseudonymized identifiers only
 
 ### 🏥 **Improved Clinical Decision Support**
 - **Enhanced Missing Value Handling** - Disc diffusion missing values now return "Requires Review" instead of "RR"
@@ -291,6 +294,7 @@ docker-compose -f docker/docker-compose.yml run tests
 - **FHIR Profile Validation** - Multi-profile pack validation
 - **Error Response Format** - RFC 7807 ProblemDetails compliance
 - **Security Features** - OAuth2, mTLS, and PII redaction
+- **Pseudonymization Testing** - Patient identifier cryptographic pseudonymization across all message formats
 
 ## ⚙️ Configuration
 
@@ -326,6 +330,14 @@ MTLS_CLIENT_KEY_PATH=/etc/ssl/private/client-key.pem
 # PROMETHEUS_METRICS_PORT=9090
 # ENABLE_AUDIT_LOGGING=true
 
+# Patient Identifier Pseudonymization Configuration
+PSEUDONYMIZATION_ENABLED=true
+PSEUDONYM_SALT_KEY=your-secure-salt-key-here
+PSEUDONYM_ENCRYPTION_KEY=your-encryption-key-here
+PSEUDONYM_STORAGE_PATH=./pseudonym_storage
+PSEUDONYM_DUMMY_ID_PREFIX=PSY
+PSEUDONYM_DUMMY_ID_LENGTH=12
+
 # Optional: Custom breakpoint sources
 # CLSI_RULES_PATH=amr_engine/rules/clsi_2024.yaml
 ```
@@ -342,8 +354,18 @@ docker run -p 8080:8080 \
   amr-engine:latest
 ```
 
-## 🔒 Security
+## 🔒 Security & Privacy Protection
 
+### 🛡️ **Patient Identifier Pseudonymization**
+- **Entry Point Protection** - FastAPI middleware intercepts ALL requests before external processing
+- **Cryptographic Security** - HMAC-SHA256 with configurable salt for consistent pseudonym generation
+- **Multi-Format Support** - Automatic pseudonymization for FHIR R4, HL7v2, and JSON inputs
+- **Encrypted Storage** - AES encryption for bidirectional identifier mapping with PBKDF2 key derivation
+- **Audit Compliance** - All audit trails use pseudonymized identifiers only (HIPAA-compliant)
+- **Reversible Mapping** - Authorized depseudonymization for debugging and compliance
+- **Multiple ID Types** - Support for Patient ID, MRN, SSN, Specimen ID with type-specific prefixes
+
+### 🔐 **Authentication & Authorization**
 - **Enterprise Authentication** - OAuth2 Bearer tokens with JWKS validation
 - **Mutual TLS (mTLS)** - Optional client certificate authentication
 - **RFC 7807 Error Responses** - Standardized error format with embedded FHIR OperationOutcome
@@ -354,17 +376,48 @@ docker run -p 8080:8080 \
 - **No secrets in repository** - All sensitive data via environment variables
 - **Input validation** - Comprehensive request validation and sanitization
 
+### 🔍 **Privacy Protection Features**
+```bash
+# Example pseudonymized identifiers
+Original Patient ID: PATIENT-12345
+Pseudonymized ID:   PSY-PT-A1B2C3D4
+
+Original MRN:       MRN-67890  
+Pseudonymized MRN:  PSY-MR-E5F6G7H8
+
+Original Specimen:  SPEC-98765
+Pseudonymized ID:   PSY-SP-I9J0K1L2
+```
+
+### 📋 **Pseudonymization Configuration**
+```bash
+# Enable pseudonymization (default: true)
+PSEUDONYMIZATION_ENABLED=true
+
+# Cryptographic salt (required for production)
+PSEUDONYM_SALT_KEY=your-secure-32-byte-salt-key
+
+# Encryption key for mapping storage (optional)
+PSEUDONYM_ENCRYPTION_KEY=your-aes-256-encryption-key
+
+# Storage configuration  
+PSEUDONYM_STORAGE_PATH=./pseudonym_storage
+PSEUDONYM_DUMMY_ID_PREFIX=PSY
+PSEUDONYM_DUMMY_ID_LENGTH=12
+```
+
 ## 🏗️ Enterprise Architecture
 
 ### Key Components
 - **FastAPI Framework** - Modern, fast web framework with automatic OpenAPI
 - **Pydantic Models** - Data validation and serialization
+- **Pseudonymization Middleware** - Entry-point PHI protection with cryptographic pseudonymization
 - **FHIR Adapter** - FHIR R4 resource parsing and validation
 - **HL7v2 Parser** - HL7v2 message segment parsing
 - **Rule Engine** - YAML/JSON-based classification rules
 - **OpenTelemetry Tracing** - Distributed tracing with Jaeger integration
 - **Prometheus Metrics** - Comprehensive domain-specific metrics
-- **FHIR AuditEvent Logging** - Compliance-ready audit trails
+- **FHIR AuditEvent Logging** - Compliance-ready audit trails with pseudonymized identifiers
 
 ### Enterprise Features
 
@@ -375,10 +428,12 @@ docker run -p 8080:8080 \
 - **Real-Time Dashboards** - Grafana integration for comprehensive monitoring
 
 #### 🛡️ **Compliance & Audit**
-- **FHIR AuditEvent Generation** - Standards-compliant audit logging
+- **FHIR AuditEvent Generation** - Standards-compliant audit logging with pseudonymized identifiers
 - **Classification Tracking** - Full audit trail for all classification decisions
 - **Rule Version Auditing** - Track which rule versions were applied
 - **Profile Pack Selection Auditing** - Record tenant-specific profile pack usage
+- **HIPAA-Compliant Logging** - All audit events use pseudonymized patient/specimen identifiers
+- **Pseudonymization Tracking** - Audit events record pseudonymization status and statistics
 
 #### 🏥 **Multi-Profile FHIR Validation**
 - **IL-Core Support** - Israeli national FHIR implementation guide
@@ -490,8 +545,9 @@ kubectl apply -f k8s/networkpolicy.yaml
 - **Multi-Profile Support** - IL-Core, US-Core, IPS, and custom profiles
 - **Audit Trail Generation** - FHIR AuditEvent resources for regulatory compliance
 - **Tenant Isolation** - Multi-tenant profile pack assignment and validation
-- **Data Privacy** - No patient data persistence, stateless processing
+- **Data Privacy** - No patient data persistence, stateless processing with cryptographic pseudonymization
 - **Post-Market Surveillance** - Continuous safety and performance monitoring
+- **PHI Protection** - Entry-point pseudonymization of all patient identifiers (see [PSEUDONYMIZATION_README.md](PSEUDONYMIZATION_README.md))
 
 #### 🔧 **Operational Excellence**
 - **Environment-Specific Rules** - Use appropriate rule files per environment
