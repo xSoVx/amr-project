@@ -23,6 +23,14 @@ from pathlib import Path
 import json
 
 try:
+    from ..security.middleware import get_current_pseudonymization_service, pseudonymize_patient_id
+    PSEUDONYMIZATION_AVAILABLE = True
+except ImportError:
+    PSEUDONYMIZATION_AVAILABLE = False
+    def pseudonymize_patient_id(patient_id: str, id_type: str = "Patient") -> str:
+        return patient_id
+
+try:
     from fhir.resources.auditevent import AuditEvent
     from fhir.resources.coding import Coding
     from fhir.resources.reference import Reference
@@ -236,8 +244,8 @@ class HIPAAAuditLogger:
         
         Args:
             user_id: User identifier performing classification
-            patient_id: Patient identifier (if available)
-            specimen_id: Specimen identifier
+            patient_id: Patient identifier (if available) - will be pseudonymized
+            specimen_id: Specimen identifier - will be pseudonymized  
             classification_result: Result of classification (S/I/R/etc.)
             source_ip: Source IP address
             user_agent: User agent string
@@ -250,6 +258,18 @@ class HIPAAAuditLogger:
         Returns:
             Audit event ID
         """
+        # Pseudonymize patient and specimen identifiers for audit storage
+        pseudonymized_patient_id = None
+        if patient_id:
+            pseudonymized_patient_id = pseudonymize_patient_id(patient_id, "Patient")
+        
+        pseudonymized_specimen_id = pseudonymize_patient_id(specimen_id, "specimen_id")
+        
+        # Build resource IDs list with pseudonymized identifiers
+        resource_ids = [pseudonymized_specimen_id]
+        if pseudonymized_patient_id:
+            resource_ids.append(pseudonymized_patient_id)
+        
         event_data = AuditEventData(
             event_id=str(uuid.uuid4()),
             timestamp=datetime.now(timezone.utc).isoformat(),
@@ -261,15 +281,19 @@ class HIPAAAuditLogger:
             user_id=user_id,
             user_name=user_name,
             user_role=user_role,
-            patient_id=patient_id,
-            specimen_id=specimen_id,
-            resource_ids=[specimen_id] + ([patient_id] if patient_id else []),
+            patient_id=pseudonymized_patient_id,
+            specimen_id=pseudonymized_specimen_id,
+            resource_ids=resource_ids,
             source_ip=source_ip,
             user_agent=user_agent,
             classification_result=classification_result,
             organism=organism,
             antibiotic=antibiotic,
-            additional_data=additional_data or {}
+            additional_data={
+                **(additional_data or {}),
+                "pseudonymization_enabled": PSEUDONYMIZATION_AVAILABLE,
+                "original_identifiers_pseudonymized": True
+            }
         )
         
         return await self._store_audit_event(event_data)

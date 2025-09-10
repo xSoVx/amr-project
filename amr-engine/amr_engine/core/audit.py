@@ -15,6 +15,14 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 from typing_extensions import Literal
 
+try:
+    from ..security.middleware import pseudonymize_patient_id
+    PSEUDONYMIZATION_AVAILABLE = True
+except ImportError:
+    PSEUDONYMIZATION_AVAILABLE = False
+    def pseudonymize_patient_id(patient_id: str, id_type: str = "Patient") -> str:
+        return patient_id
+
 
 class AuditEventAction(str, Enum):
     """FHIR AuditEvent action codes."""
@@ -120,7 +128,10 @@ class AMRAuditLogger:
         outcome: AuditEventOutcome = AuditEventOutcome.SUCCESS,
         outcome_desc: Optional[str] = None
     ) -> FHIRAuditEvent:
-        """Create audit event for AMR classification operation."""
+        """Create audit event for AMR classification operation with pseudonymized identifiers."""
+        
+        # Pseudonymize specimen ID for audit storage
+        pseudonymized_specimen_id = pseudonymize_patient_id(specimen_id, "specimen_id")
         
         agents = [
             AuditActor(
@@ -147,7 +158,7 @@ class AMRAuditLogger:
         
         entities = [
             AuditEntity(
-                what={"identifier": {"value": specimen_id}},
+                what={"identifier": {"value": pseudonymized_specimen_id}},
                 type={
                     "system": "http://terminology.hl7.org/CodeSystem/audit-entity-type",
                     "code": "2",
@@ -171,6 +182,14 @@ class AMRAuditLogger:
                     {
                         "type": "decision",
                         "valueString": decision
+                    },
+                    {
+                        "type": "pseudonymization_enabled",
+                        "valueString": str(PSEUDONYMIZATION_AVAILABLE)
+                    },
+                    {
+                        "type": "original_specimen_id_pseudonymized", 
+                        "valueString": "true"
                     }
                 ]
             )
@@ -350,7 +369,11 @@ class AMRAuditLogger:
         action: AuditEventAction = AuditEventAction.READ,
         outcome: AuditEventOutcome = AuditEventOutcome.SUCCESS
     ) -> FHIRAuditEvent:
-        """Create audit event for data access operations."""
+        """Create audit event for data access operations with pseudonymized identifiers."""
+        
+        # Pseudonymize resource ID based on resource type
+        id_type = "Patient" if resource_type == "Patient" else "specimen_id"
+        pseudonymized_resource_id = pseudonymize_patient_id(resource_id, id_type)
         
         agents = [
             AuditActor(
@@ -387,7 +410,7 @@ class AMRAuditLogger:
             source=self.source,
             entity=[
                 AuditEntity(
-                    what={"reference": f"{resource_type}/{resource_id}"},
+                    what={"reference": f"{resource_type}/{pseudonymized_resource_id}"},
                     type={
                         "system": "http://terminology.hl7.org/CodeSystem/audit-entity-type",
                         "code": "2",
@@ -398,7 +421,17 @@ class AMRAuditLogger:
                         "code": "4",
                         "display": "Domain Resource"
                     },
-                    name=f"{resource_type} Resource Access"
+                    name=f"{resource_type} Resource Access",
+                    detail=[
+                        {
+                            "type": "pseudonymization_enabled",
+                            "valueString": str(PSEUDONYMIZATION_AVAILABLE)
+                        },
+                        {
+                            "type": "original_resource_id_pseudonymized",
+                            "valueString": "true"
+                        }
+                    ]
                 )
             ]
         )

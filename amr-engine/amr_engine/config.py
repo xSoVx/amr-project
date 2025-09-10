@@ -45,6 +45,14 @@ class Settings(BaseSettings):
     REDIS_SOCKET_TIMEOUT: int = 5
     CACHE_DEFAULT_TTL: int = 3600  # 1 hour
     CACHE_RULE_TTL: int = 7200  # 2 hours
+    
+    # Pseudonymization Configuration
+    PSEUDONYMIZATION_ENABLED: bool = True
+    PSEUDONYM_SALT_KEY: Optional[str] = None
+    PSEUDONYM_ENCRYPTION_KEY: Optional[str] = None
+    PSEUDONYM_STORAGE_PATH: str = "./pseudonym_storage"
+    PSEUDONYM_DUMMY_ID_PREFIX: str = "PSY"
+    PSEUDONYM_DUMMY_ID_LENGTH: int = 12
 
     def rules_paths(self) -> list[Path]:
         p = Path(self.AMR_RULES_PATH)

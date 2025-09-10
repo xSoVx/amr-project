@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 from typing import Any
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -10,6 +11,8 @@ from fastapi.responses import JSONResponse
 from .api.routes import router
 from .config import get_settings
 from .core.exceptions import FHIRValidationError, RulesValidationError
+from .security.middleware import PseudonymizationMiddleware, PseudonymizationContext
+from .security.pseudonymization import PseudonymizationConfig
 try:
     from .cache.redis_cache import init_cache
     HAS_REDIS_CACHE = True
@@ -62,6 +65,25 @@ def create_app() -> FastAPI:
             logger.warning(f"Redis cache initialization failed: {e} - running without cache")
     else:
         logger.info("Redis caching disabled or unavailable")
+    
+    # Initialize pseudonymization middleware if enabled
+    pseudonymization_middleware = None
+    if settings.PSEUDONYMIZATION_ENABLED:
+        try:
+            pseudonymization_config = PseudonymizationConfig(
+                salt_key=settings.PSEUDONYM_SALT_KEY,
+                encryption_key=settings.PSEUDONYM_ENCRYPTION_KEY,
+                storage_path=Path(settings.PSEUDONYM_STORAGE_PATH),
+                dummy_id_prefix=settings.PSEUDONYM_DUMMY_ID_PREFIX,
+                dummy_id_length=settings.PSEUDONYM_DUMMY_ID_LENGTH
+            )
+            pseudonymization_middleware = pseudonymization_config
+            logger.info("Pseudonymization service initialized successfully")
+        except Exception as e:
+            logger.error(f"Pseudonymization initialization failed: {e}")
+            pseudonymization_middleware = None
+    else:
+        logger.info("Pseudonymization disabled")
     
     app = FastAPI(
         title="AMR Classification Engine",
@@ -173,6 +195,14 @@ def create_app() -> FastAPI:
     if tracing:
         tracing.instrument_fastapi(app)
         tracing.instrument_requests()
+    
+    # Add pseudonymization middleware if enabled
+    if pseudonymization_middleware:
+        try:
+            app.add_middleware(PseudonymizationMiddleware, config=pseudonymization_middleware)
+            logger.info("Pseudonymization middleware added to FastAPI app")
+        except Exception as e:
+            logger.error(f"Failed to add pseudonymization middleware: {e}")
     
     app.include_router(router)
     return app
