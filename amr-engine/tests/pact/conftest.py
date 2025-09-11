@@ -120,6 +120,29 @@ def amr_hl7v2_consumer_pact(pact_dir: Path, mock_service_port: int) -> Generator
     pact.stop()
 
 
+@pytest.fixture
+def ui_consumer_pact(pact_dir: Path, mock_service_port: int) -> Generator:
+    """
+    Create Pact consumer for UI service testing.
+    
+    Args:
+        pact_dir: Directory for storing Pact files
+        mock_service_port: Port for mock service
+        
+    Yields:
+        Pact: Consumer-provider Pact instance for UI testing
+    """
+    pact = Consumer("ui-service").has_pact_with(
+        Provider("amr-classification-service"),
+        host_name="localhost",
+        port=mock_service_port + 3,  # Use different port to avoid conflicts
+        pact_dir=str(pact_dir)
+    )
+    pact.start()
+    yield pact
+    pact.stop()
+
+
 @pytest.fixture(autouse=True)
 def setup_test_environment():
     """

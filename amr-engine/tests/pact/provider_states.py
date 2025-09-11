@@ -541,6 +541,336 @@ class ProviderStates:
             "method": "MIC"
             # Missing mic_mg_L value
         }
+    
+    @staticmethod
+    def healthy_patient_data_for_ui() -> Dict[str, Any]:
+        """
+        Provider state: healthy patient data specifically for UI consumer testing.
+        
+        Returns complete FHIR Bundle with UI-specific identifiers and test data.
+        """
+        return {
+            "resourceType": "Bundle",
+            "id": "bundle-ecoli-ui-001",
+            "type": "collection",
+            "entry": [
+                {
+                    "resource": {
+                        "resourceType": "Patient",
+                        "id": "patient-ui-12345",
+                        "identifier": [
+                            {
+                                "use": "usual",
+                                "value": "UI-MRN12345678"
+                            }
+                        ],
+                        "name": [
+                            {
+                                "family": "Smith",
+                                "given": ["Jane", "A"]
+                            }
+                        ],
+                        "gender": "female",
+                        "birthDate": "1985-06-20"
+                    }
+                },
+                {
+                    "resource": {
+                        "resourceType": "Specimen",
+                        "id": "specimen-blood-ui-001",
+                        "identifier": [
+                            {
+                                "value": "UI-SPEC001"
+                            }
+                        ],
+                        "type": {
+                            "coding": [
+                                {
+                                    "system": "http://snomed.info/sct",
+                                    "code": "119297000",
+                                    "display": "Blood specimen"
+                                }
+                            ]
+                        },
+                        "subject": {
+                            "reference": "Patient/patient-ui-12345"
+                        },
+                        "collection": {
+                            "collectedDateTime": "2024-09-11T10:30:00Z"
+                        }
+                    }
+                },
+                {
+                    "resource": {
+                        "resourceType": "Observation",
+                        "id": "organism-ecoli-ui",
+                        "status": "final",
+                        "category": [
+                            {
+                                "coding": [
+                                    {
+                                        "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                                        "code": "laboratory"
+                                    }
+                                ]
+                            }
+                        ],
+                        "code": {
+                            "coding": [
+                                {
+                                    "system": "http://loinc.org",
+                                    "code": "634-6",
+                                    "display": "Bacteria identified in Specimen by Culture"
+                                }
+                            ]
+                        },
+                        "subject": {
+                            "reference": "Patient/patient-ui-12345"
+                        },
+                        "specimen": {
+                            "reference": "Specimen/specimen-blood-ui-001"
+                        },
+                        "valueCodeableConcept": {
+                            "coding": [
+                                {
+                                    "system": "http://snomed.info/sct",
+                                    "code": "112283007",
+                                    "display": "Escherichia coli"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "resource": {
+                        "resourceType": "Observation",
+                        "id": "ciprofloxacin-mic-ui",
+                        "status": "final",
+                        "category": [
+                            {
+                                "coding": [
+                                    {
+                                        "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                                        "code": "laboratory"
+                                    }
+                                ]
+                            }
+                        ],
+                        "code": {
+                            "coding": [
+                                {
+                                    "system": "http://loinc.org",
+                                    "code": "20629-2",
+                                    "display": "Ciprofloxacin [Susceptibility] by Minimum inhibitory concentration (MIC)"
+                                }
+                            ]
+                        },
+                        "subject": {
+                            "reference": "Patient/patient-ui-12345"
+                        },
+                        "specimen": {
+                            "reference": "Specimen/specimen-blood-ui-001"
+                        },
+                        "valueQuantity": {
+                            "value": 0.25,
+                            "unit": "mg/L"
+                        }
+                    }
+                }
+            ]
+        }
+    
+    @staticmethod
+    def hl7v2_message_with_missing_mic() -> str:
+        """
+        Provider state: HL7v2 message with missing MIC values for UI testing.
+        
+        Returns HL7v2 message containing incomplete antimicrobial data that
+        requires manual review.
+        """
+        return (
+            "MSH|^~\\&|UI_SYSTEM|UI_LAB|EMR|MAIN_HOSPITAL|20240911103000||ORU^R01|UI_MSG001|P|2.5\r"
+            "PID|1||UI_P12345678^^^MRN^MR||JONES^MICHAEL^R||19750308|M|||456 ELM ST^^ANYTOWN^CA^90210||555-9876|||987654321\r"
+            "OBR|1|||MICRO^Microbiology Culture^L||202409111000||||||||UI_SPEC002^BLOOD^L||||||||20240911103000|||F\r"
+            "OBX|1|ST|ORG^Organism^L||Staphylococcus aureus||||||F\r"
+            "OBX|2|ST|MIC^Vancomycin MIC^L||Missing|mg/L||||F\r"
+        )
+    
+    @staticmethod
+    def invalid_organism_code_data() -> Dict[str, Any]:
+        """
+        Provider state: FHIR Bundle with invalid organism code for error testing.
+        
+        Returns FHIR Bundle containing unsupported organism code that should
+        trigger RFC 7807 error response with embedded OperationOutcome.
+        """
+        return {
+            "resourceType": "Bundle",
+            "id": "bundle-invalid-organism-ui",
+            "type": "collection",
+            "entry": [
+                {
+                    "resource": {
+                        "resourceType": "Patient",
+                        "id": "patient-ui-99999",
+                        "identifier": [{"value": "UI-INVALID001"}],
+                        "name": [{"family": "Test", "given": ["Invalid"]}]
+                    }
+                },
+                {
+                    "resource": {
+                        "resourceType": "Specimen",
+                        "id": "specimen-ui-invalid",
+                        "identifier": [{"value": "UI-SPEC-INVALID"}],
+                        "subject": {"reference": "Patient/patient-ui-99999"}
+                    }
+                },
+                {
+                    "resource": {
+                        "resourceType": "Observation",
+                        "id": "invalid-organism",
+                        "status": "final",
+                        "category": [
+                            {
+                                "coding": [
+                                    {
+                                        "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                                        "code": "laboratory"
+                                    }
+                                ]
+                            }
+                        ],
+                        "code": {
+                            "coding": [
+                                {
+                                    "system": "http://loinc.org",
+                                    "code": "634-6",
+                                    "display": "Bacteria identified in Specimen by Culture"
+                                }
+                            ]
+                        },
+                        "subject": {"reference": "Patient/patient-ui-99999"},
+                        "specimen": {"reference": "Specimen/specimen-ui-invalid"},
+                        "valueCodeableConcept": {
+                            "coding": [
+                                {
+                                    "system": "http://snomed.info/sct",
+                                    "code": "999999999",
+                                    "display": "Unknown Alien Bacteria"
+                                }
+                            ]
+                        }
+                    }
+                }
+            ]
+        }
+    
+    @staticmethod
+    def il_core_profile_validation_failure_data() -> Dict[str, Any]:
+        """
+        Provider state: FHIR Bundle that fails IL-Core profile validation.
+        
+        Returns FHIR Bundle that does not meet IL-Core profile constraints.
+        """
+        return {
+            "resourceType": "Bundle",
+            "id": "bundle-il-core-fail",
+            "type": "collection",
+            "entry": [
+                {
+                    "resource": {
+                        "resourceType": "Patient",
+                        "id": "patient-il-fail",
+                        # Missing required IL-Core identifier
+                        "name": [{"family": "כהן", "given": ["דוד"]}],
+                        "gender": "male"
+                    }
+                },
+                {
+                    "resource": {
+                        "resourceType": "Specimen",
+                        "id": "specimen-il-fail",
+                        "subject": {"reference": "Patient/patient-il-fail"}
+                        # Missing required IL-Core specimen details
+                    }
+                }
+            ]
+        }
+    
+    @staticmethod
+    def mixed_format_batch_data() -> Dict[str, Any]:
+        """
+        Provider state: batch request with mixed input formats for UI testing.
+        
+        Returns batch request containing both FHIR and direct JSON inputs.
+        """
+        return {
+            "requests": [
+                {
+                    "type": "fhir",
+                    "data": {
+                        "resourceType": "Observation",
+                        "id": "batch-obs-1",
+                        "status": "final",
+                        "category": [
+                            {
+                                "coding": [
+                                    {
+                                        "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                                        "code": "laboratory"
+                                    }
+                                ]
+                            }
+                        ],
+                        "code": {
+                            "coding": [
+                                {
+                                    "system": "http://loinc.org",
+                                    "code": "18864-9",
+                                    "display": "Ampicillin [Susceptibility] by Minimum inhibitory concentration (MIC)"
+                                }
+                            ]
+                        },
+                        "valueQuantity": {
+                            "value": 8,
+                            "unit": "mg/L"
+                        },
+                        "component": [
+                            {
+                                "code": {
+                                    "coding": [
+                                        {
+                                            "system": "http://loinc.org",
+                                            "code": "634-6",
+                                            "display": "Bacteria identified"
+                                        }
+                                    ]
+                                },
+                                "valueCodeableConcept": {
+                                    "coding": [
+                                        {
+                                            "system": "http://snomed.info/sct",
+                                            "code": "112283007",
+                                            "display": "Escherichia coli"
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                },
+                {
+                    "type": "direct",
+                    "data": {
+                        "organism": "Staphylococcus aureus",
+                        "antibiotic": "Vancomycin",
+                        "method": "MIC",
+                        "mic_mg_L": 2.0,
+                        "specimenId": "UI-BATCH-002"
+                    }
+                }
+            ]
+        }
 
 
 def setup_provider_state(state_name: str) -> Any:
@@ -568,6 +898,12 @@ def setup_provider_state(state_name: str) -> Any:
         "malformed HL7v2 message": states.get_malformed_hl7v2_message,
         "direct classification input": states.get_direct_classification_input,
         "invalid classification input": states.get_invalid_classification_input,
+        # UI-specific provider states
+        "healthy patient data for UI": states.healthy_patient_data_for_ui,
+        "HL7v2 message with missing MIC values": states.hl7v2_message_with_missing_mic,
+        "invalid organism code data": states.invalid_organism_code_data,
+        "IL-Core profile validation failure data": states.il_core_profile_validation_failure_data,
+        "mixed format batch data": states.mixed_format_batch_data,
     }
     
     if state_name not in state_mapping:
