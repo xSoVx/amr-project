@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: amr-engine-rules
+  namespace: amr-engine
+  labels:
+    app: amr-engine
+data:
+  eucast_v_2025_1.yaml: "version: \"EUCAST-2025.1\"\r\nrules:\r\n  - organism:\r\n
+    \     name: \"Escherichia coli\"\r\n      snomed: \"112283007\"\r\n    antibiotic:\r\n
+    \     name: \"Ciprofloxacin\"\r\n      atc: \"J01MA02\"\r\n    method: \"MIC\"\r\n
+    \   mic:\r\n      susceptible_max: 0.25\r\n      intermediate_range: [0.5, 1.0]\r\n
+    \     resistant_min: 2.0\r\n    exceptions:\r\n      - id: \"esbl_suspected\"\r\n
+    \       when: \"organism.features.esbl == true\"\r\n        action: \"RR\"\r\n
+    \       note: \"ESBL suspicion triggers manual review\"\r\n    version: \"EUCAST-2025.1\"\r\n\r\n
+    \ - organism:\r\n      name: \"Escherichia coli\"\r\n      snomed: \"112283007\"\r\n
+    \   antibiotic:\r\n      name: \"Ciprofloxacin\"\r\n      atc: \"J01MA02\"\r\n
+    \   method: \"DISC\"\r\n    disc:\r\n      susceptible_min_zone_mm: 26\r\n      intermediate_range_zone_mm:
+    [22, 25]\r\n      resistant_max_zone_mm: 21\r\n    version: \"EUCAST-2025.1\"\r\n\r\n
+    \ - organism:\r\n      name: \"Staphylococcus aureus\"\r\n      snomed: \"3092008\"\r\n
+    \   antibiotic:\r\n      name: \"Oxacillin\"\r\n      atc: \"J01CF04\"\r\n    method:
+    \"MIC\"\r\n    mic:\r\n      susceptible_max: 0.25\r\n      intermediate_range:
+    [0.5, 1.0]\r\n      resistant_min: 2.0\r\n    version: \"EUCAST-2025.1\"\r\n\r\n
+    \ - organism:\r\n      name: \"Pseudomonas aeruginosa\"\r\n      snomed: \"9875009\"\r\n
+    \   antibiotic:\r\n      name: \"Piperacillin-tazobactam\"\r\n      atc: \"J01CR05\"\r\n
+    \   method: \"DISC\"\r\n    disc:\r\n      susceptible_min_zone_mm: 21\r\n      intermediate_range_zone_mm:
+    [18, 20]\r\n      resistant_max_zone_mm: 17\r\n    version: \"EUCAST-2025.1\"\r\n\r\n"
+kind: ConfigMap
+metadata:
+  creationTimestamp: null
+  name: amr-engine-rules

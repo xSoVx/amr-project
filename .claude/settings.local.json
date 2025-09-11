@@ -27,7 +27,11 @@
       "Bash(find:*)",
       "Bash(REDIS_ENABLED=true docker run -d -p 8083:8080 --name amr-api-redis -e AMR_RULES_PATH=amr_engine/rules/eucast_v_2025_1.yaml -e LOG_LEVEL=INFO -e REDIS_ENABLED=true amr-engine:latest uvicorn amr_engine.main:app --host 0.0.0.0 --port 8080)",
       "Bash(docker stop:*)",
-      "Bash(docker rm:*)"
+      "Bash(docker rm:*)",
+      "Bash(docker cp:*)",
+      "Bash(docker restart:*)",
+      "Bash(kubectl:*)",
+      "Bash(bash:*)"
     ],
     "deny": [],
     "ask": []

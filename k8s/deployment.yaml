@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: amr-engine
+  namespace: amr-engine
+  labels:
+    app: amr-engine
+    version: v1.0.0
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: amr-engine
+  template:
+    metadata:
+      labels:
+        app: amr-engine
+        version: v1.0.0
+    spec:
+      containers:
+      - name: amr-engine
+        image: amr-engine:latest
+        imagePullPolicy: Never  # Use local Docker image
+        command: ["uvicorn"]
+        args: ["amr_engine.main:app", "--host", "0.0.0.0", "--port", "8080"]
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        env:
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: amr-engine-config
+              key: LOG_LEVEL
+        - name: AMR_RULES_PATH
+          value: "/app/config/rules/eucast_v_2025_1.yaml"
+        - name: REDIS_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: amr-engine-config
+              key: REDIS_ENABLED
+        - name: PSEUDONYMIZATION_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: amr-engine-config
+              key: PSEUDONYMIZATION_ENABLED
+        - name: PSEUDONYMIZATION_STORAGE_PATH
+          valueFrom:
+            configMapKeyRef:
+              name: amr-engine-config
+              key: PSEUDONYMIZATION_STORAGE_PATH
+        volumeMounts:
+        - name: rules-config
+          mountPath: /app/config/rules
+          readOnly: true
+        - name: pseudonym-storage
+          mountPath: /tmp/pseudonym_storage
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 12
+      volumes:
+      - name: rules-config
+        configMap:
+          name: amr-engine-rules
+      - name: pseudonym-storage
+        emptyDir: {}
+      restartPolicy: Always
