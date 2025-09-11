@@ -9,7 +9,13 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from .api.routes import router
-from .api.pact_routes import router as pact_router
+# Import pact_routes conditionally to handle test dependencies
+try:
+    from .api.pact_routes import router as pact_router
+    HAS_PACT_ROUTES = True
+except ImportError:
+    HAS_PACT_ROUTES = False
+    pact_router = None
 from .config import get_settings
 from .core.exceptions import FHIRValidationError, RulesValidationError
 from .security.middleware import PseudonymizationMiddleware, PseudonymizationContext
@@ -208,8 +214,10 @@ def create_app() -> FastAPI:
     app.include_router(router)
     
     # Include Pact verification routes (only in testing environment)
-    if os.getenv("TESTING") == "true" or os.getenv("PACT_VERIFICATION") == "true":
+    if HAS_PACT_ROUTES and (os.getenv("TESTING") == "true" or os.getenv("PACT_VERIFICATION") == "true"):
         app.include_router(pact_router)
+    elif not HAS_PACT_ROUTES and (os.getenv("TESTING") == "true" or os.getenv("PACT_VERIFICATION") == "true"):
+        logger.warning("Pact verification requested but routes unavailable due to missing test dependencies")
     return app
 
 

@@ -14,7 +14,7 @@ from fastapi import APIRouter, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field
 
 from ..core.schemas import ProblemDetails, OperationOutcome
-from ...tests.pact.provider_state_manager import provider_state_manager
+from ..tests.pact.provider_state_manager import provider_state_manager
 
 logger = logging.getLogger(__name__)
 
