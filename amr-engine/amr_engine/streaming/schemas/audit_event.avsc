@@ -1,0 +1,300 @@
+{
+  "type": "record",
+  "name": "AuditEvent",
+  "namespace": "com.amr.fhir.audit",
+  "doc": "FHIR AuditEvent schema for AMR service audit streaming",
+  "fields": [
+    {
+      "name": "id",
+      "type": "string",
+      "doc": "Logical id of this audit event"
+    },
+    {
+      "name": "resourceType",
+      "type": "string",
+      "default": "AuditEvent",
+      "doc": "FHIR resource type"
+    },
+    {
+      "name": "recorded",
+      "type": "long",
+      "logicalType": "timestamp-millis",
+      "doc": "Time when the event was recorded (UTC timestamp in milliseconds)"
+    },
+    {
+      "name": "type",
+      "type": {
+        "type": "record",
+        "name": "Coding",
+        "fields": [
+          {
+            "name": "system",
+            "type": "string",
+            "doc": "Identity of the terminology system"
+          },
+          {
+            "name": "code",
+            "type": "string",
+            "doc": "Symbol in syntax defined by the system"
+          },
+          {
+            "name": "display",
+            "type": ["null", "string"],
+            "default": null,
+            "doc": "Representation defined by the system"
+          }
+        ]
+      },
+      "doc": "Type of event"
+    },
+    {
+      "name": "subtype",
+      "type": {
+        "type": "array",
+        "items": "Coding"
+      },
+      "default": [],
+      "doc": "More specific type/id for the event"
+    },
+    {
+      "name": "action",
+      "type": {
+        "type": "enum",
+        "name": "AuditEventAction",
+        "symbols": ["C", "R", "U", "D", "E"],
+        "doc": "Create, Read, Update, Delete, Execute"
+      },
+      "doc": "Type of action performed during the event"
+    },
+    {
+      "name": "outcome",
+      "type": {
+        "type": "enum",
+        "name": "AuditEventOutcome",
+        "symbols": ["0", "4", "8", "12"],
+        "doc": "Success, Minor failure, Serious failure, Major failure"
+      },
+      "default": "0",
+      "doc": "Indicates whether the event succeeded or failed"
+    },
+    {
+      "name": "outcomeDesc",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Description of the event outcome"
+    },
+    {
+      "name": "agent",
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "AuditEventAgent",
+          "fields": [
+            {
+              "name": "type",
+              "type": ["null", "Coding"],
+              "default": null,
+              "doc": "How agent participated"
+            },
+            {
+              "name": "role",
+              "type": {
+                "type": "array",
+                "items": "Coding"
+              },
+              "default": [],
+              "doc": "Agent role in the event"
+            },
+            {
+              "name": "who",
+              "type": ["null", {
+                "type": "record",
+                "name": "Reference",
+                "fields": [
+                  {
+                    "name": "reference",
+                    "type": ["null", "string"],
+                    "default": null
+                  },
+                  {
+                    "name": "display",
+                    "type": ["null", "string"],
+                    "default": null
+                  }
+                ]
+              }],
+              "default": null,
+              "doc": "Identifier of who"
+            },
+            {
+              "name": "name",
+              "type": ["null", "string"],
+              "default": null,
+              "doc": "Human friendly name for the agent"
+            },
+            {
+              "name": "requestor",
+              "type": "boolean",
+              "default": false,
+              "doc": "Whether user is initiator"
+            },
+            {
+              "name": "network",
+              "type": ["null", {
+                "type": "record",
+                "name": "AuditEventAgentNetwork",
+                "fields": [
+                  {
+                    "name": "address",
+                    "type": ["null", "string"],
+                    "default": null,
+                    "doc": "Identifier for the network access point"
+                  },
+                  {
+                    "name": "type",
+                    "type": ["null", {
+                      "type": "enum",
+                      "name": "AuditEventAgentNetworkType",
+                      "symbols": ["1", "2", "3", "4", "5"],
+                      "doc": "Machine Name, IP Address, Telephone Number, Email Address, URI"
+                    }],
+                    "default": null,
+                    "doc": "The type of network access point"
+                  }
+                ]
+              }],
+              "default": null,
+              "doc": "Logical network location for application activity"
+            }
+          ]
+        }
+      },
+      "doc": "Actor involved in the event"
+    },
+    {
+      "name": "source",
+      "type": {
+        "type": "record",
+        "name": "AuditEventSource",
+        "fields": [
+          {
+            "name": "site",
+            "type": ["null", "string"],
+            "default": null,
+            "doc": "Logical source location within the healthcare enterprise"
+          },
+          {
+            "name": "observer",
+            "type": "Reference",
+            "doc": "The identity of source detecting the event"
+          },
+          {
+            "name": "type",
+            "type": {
+              "type": "array",
+              "items": "Coding"
+            },
+            "default": [],
+            "doc": "The type of source where event originated"
+          }
+        ]
+      },
+      "doc": "Audit Event Reporter"
+    },
+    {
+      "name": "entity",
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "AuditEventEntity",
+          "fields": [
+            {
+              "name": "what",
+              "type": ["null", "Reference"],
+              "default": null,
+              "doc": "Specific instance of resource"
+            },
+            {
+              "name": "type",
+              "type": ["null", "Coding"],
+              "default": null,
+              "doc": "Type of entity involved"
+            },
+            {
+              "name": "role",
+              "type": ["null", "Coding"],
+              "default": null,
+              "doc": "What role the entity played"
+            },
+            {
+              "name": "lifecycle",
+              "type": ["null", "Coding"],
+              "default": null,
+              "doc": "Life-cycle stage for the entity"
+            },
+            {
+              "name": "name",
+              "type": ["null", "string"],
+              "default": null,
+              "doc": "Descriptor for entity"
+            },
+            {
+              "name": "description",
+              "type": ["null", "string"],
+              "default": null,
+              "doc": "Descriptive text"
+            }
+          ]
+        }
+      },
+      "default": [],
+      "doc": "Data or objects used"
+    },
+    {
+      "name": "patientId",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Patient ID for partitioning (extracted from entities)"
+    },
+    {
+      "name": "amrContext",
+      "type": ["null", {
+        "type": "record",
+        "name": "AMRContext",
+        "fields": [
+          {
+            "name": "classificationId",
+            "type": ["null", "string"],
+            "default": null,
+            "doc": "AMR classification request ID"
+          },
+          {
+            "name": "organism",
+            "type": ["null", "string"],
+            "default": null,
+            "doc": "Organism being classified"
+          },
+          {
+            "name": "antibiotics",
+            "type": {
+              "type": "array",
+              "items": "string"
+            },
+            "default": [],
+            "doc": "List of antibiotics tested"
+          },
+          {
+            "name": "serviceVersion",
+            "type": ["null", "string"],
+            "default": null,
+            "doc": "AMR service version"
+          }
+        ]
+      }],
+      "default": null,
+      "doc": "AMR-specific context information"
+    }
+  ]
+}

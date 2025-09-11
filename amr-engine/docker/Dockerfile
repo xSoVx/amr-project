@@ -6,13 +6,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     UVICORN_WORKERS=2 \
     PORT=8080
 
-# Install system dependencies
+# Install system dependencies including librdkafka for confluent-kafka
 RUN apk add --no-cache \
     gcc \
     musl-dev \
     libffi-dev \
     openssl-dev \
     curl \
+    librdkafka-dev \
     && adduser -D -s /bin/sh appuser
 
 WORKDIR /app
@@ -42,13 +43,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1
 
-# Install system dependencies
+# Install system dependencies including librdkafka for confluent-kafka
 RUN apk add --no-cache \
     gcc \
     musl-dev \
     libffi-dev \
     openssl-dev \
     curl \
+    librdkafka-dev \
     && adduser -D -s /bin/sh appuser
 
 WORKDIR /app

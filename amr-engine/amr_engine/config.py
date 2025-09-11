@@ -53,6 +53,23 @@ class Settings(BaseSettings):
     PSEUDONYM_STORAGE_PATH: str = "/tmp/pseudonym_storage"
     PSEUDONYM_DUMMY_ID_PREFIX: str = "PSY"
     PSEUDONYM_DUMMY_ID_LENGTH: int = 12
+    
+    # Kafka Configuration
+    KAFKA_ENABLED: bool = False
+    KAFKA_ENVIRONMENT: str = "local"
+    KAFKA_BOOTSTRAP_SERVERS: str = "localhost:9092"
+    KAFKA_AUDIT_TOPIC: str = "amr-audit-events"
+    KAFKA_DLQ_TOPIC: str = "amr-audit-events-dlq"
+    KAFKA_SECURITY_PROTOCOL: str = "PLAINTEXT"
+    KAFKA_SASL_MECHANISM: Optional[str] = None
+    KAFKA_SASL_USERNAME: Optional[str] = None
+    KAFKA_SASL_PASSWORD: Optional[str] = None
+    KAFKA_SSL_CA_CERT_PATH: Optional[str] = None
+    KAFKA_SSL_CLIENT_CERT_PATH: Optional[str] = None
+    KAFKA_SSL_CLIENT_KEY_PATH: Optional[str] = None
+    KAFKA_SCHEMA_REGISTRY_URL: Optional[str] = None
+    KAFKA_SCHEMA_REGISTRY_USERNAME: Optional[str] = None
+    KAFKA_SCHEMA_REGISTRY_PASSWORD: Optional[str] = None
 
     def rules_paths(self) -> list[Path]:
         p = Path(self.AMR_RULES_PATH)
