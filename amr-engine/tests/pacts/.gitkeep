@@ -1,0 +1,2 @@
+# This file ensures the pacts directory is preserved in git
+# Pact contract files will be generated here during testing

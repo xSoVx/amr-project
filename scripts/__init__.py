@@ -1,0 +1,1 @@
+# Scripts directory for AMR Classification Service utilities
