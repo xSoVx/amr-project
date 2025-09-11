@@ -31,7 +31,8 @@
       "Bash(docker cp:*)",
       "Bash(docker restart:*)",
       "Bash(kubectl:*)",
-      "Bash(bash:*)"
+      "Bash(bash:*)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []
