@@ -9,6 +9,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from .api.routes import router
+from .api.pact_routes import router as pact_router
 from .config import get_settings
 from .core.exceptions import FHIRValidationError, RulesValidationError
 from .security.middleware import PseudonymizationMiddleware, PseudonymizationContext
@@ -205,6 +206,10 @@ def create_app() -> FastAPI:
             logger.error(f"Failed to add pseudonymization middleware: {e}")
     
     app.include_router(router)
+    
+    # Include Pact verification routes (only in testing environment)
+    if os.getenv("TESTING") == "true" or os.getenv("PACT_VERIFICATION") == "true":
+        app.include_router(pact_router)
     return app
 
 

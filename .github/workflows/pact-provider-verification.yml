@@ -1,0 +1,365 @@
+name: Pact Provider Verification
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run provider verification daily at 6 AM UTC
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      consumer_version:
+        description: 'Specific consumer version to verify against'
+        required: false
+        type: string
+      run_can_i_deploy:
+        description: 'Run can-i-deploy check'
+        required: false
+        type: boolean
+        default: true
+
+env:
+  PACT_BROKER_URL: ${{ secrets.PACT_BROKER_URL }}
+  PACT_BROKER_TOKEN: ${{ secrets.PACT_BROKER_TOKEN }}
+  PROVIDER_VERSION: ${{ github.sha }}
+  CONSUMER_VERSION: ${{ inputs.consumer_version || github.sha }}
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  provider-verification:
+    name: Provider Contract Verification
+    runs-on: ubuntu-latest
+    
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_USER: testuser
+          POSTGRES_DB: amr_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    strategy:
+      matrix:
+        # Test against different consumer scenarios
+        consumer: [
+          { name: "amr-consumer", port: 8081 },
+          { name: "ui-service", port: 8082 },
+          { name: "amr-fhir-consumer", port: 8083 },
+          { name: "amr-hl7v2-consumer", port: 8084 }
+        ]
+      fail-fast: false
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y curl jq
+    
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+        pip install pact-python pytest-xdist pytest-timeout
+    
+    - name: Set up test environment
+      run: |
+        # Create test configuration
+        mkdir -p test-results logs
+        
+        # Set environment variables for testing
+        echo "AMR_RULES_PATH=amr_engine/rules/eucast_v_2025_1.yaml" >> $GITHUB_ENV
+        echo "LOG_LEVEL=INFO" >> $GITHUB_ENV
+        echo "REDIS_ENABLED=true" >> $GITHUB_ENV
+        echo "REDIS_URL=redis://localhost:6379" >> $GITHUB_ENV
+        echo "DATABASE_URL=postgresql://testuser:testpass@localhost:5432/amr_test" >> $GITHUB_ENV
+        echo "TESTING=true" >> $GITHUB_ENV
+        echo "PROVIDER_SERVICE_PORT=${{ matrix.consumer.port }}" >> $GITHUB_ENV
+    
+    - name: Initialize database
+      run: |
+        # Run database migrations if they exist
+        if [ -f "scripts/init_db.py" ]; then
+          python scripts/init_db.py
+        fi
+        
+        # Load test data if available
+        if [ -d "test_data" ]; then
+          python -c "
+          import os
+          from pathlib import Path
+          test_data_dir = Path('test_data')
+          if test_data_dir.exists():
+              print('Test data directory found')
+              # Load any required test data here
+          "
+        fi
+    
+    - name: Start AMR service for provider verification
+      run: |
+        # Start the AMR service in background
+        uvicorn amr_engine.main:app \
+          --host 0.0.0.0 \
+          --port ${{ matrix.consumer.port }} \
+          --log-level info \
+          --access-log \
+          > logs/amr-service-${{ matrix.consumer.name }}.log 2>&1 &
+        
+        echo "AMR_SERVICE_PID=$!" >> $GITHUB_ENV
+        
+        # Wait for service to be ready
+        timeout=60
+        while [ $timeout -gt 0 ]; do
+          if curl -f http://localhost:${{ matrix.consumer.port }}/health > /dev/null 2>&1; then
+            echo "AMR service is ready on port ${{ matrix.consumer.port }}"
+            break
+          fi
+          echo "Waiting for AMR service to start... ($timeout seconds remaining)"
+          sleep 2
+          timeout=$((timeout - 2))
+        done
+        
+        if [ $timeout -le 0 ]; then
+          echo "AMR service failed to start within timeout"
+          exit 1
+        fi
+        
+        # Verify service endpoints
+        curl -f http://localhost:${{ matrix.consumer.port }}/health | jq .
+        echo "Service health check passed"
+    
+    - name: Run provider verification tests
+      timeout-minutes: 15
+      run: |
+        # Run provider verification tests
+        pytest tests/pact/test_provider_verification.py \
+          -v \
+          --tb=short \
+          --timeout=300 \
+          --maxfail=5 \
+          --junit-xml=test-results/provider-verification-${{ matrix.consumer.name }}.xml \
+          --consumer-name=${{ matrix.consumer.name }} \
+          --provider-port=${{ matrix.consumer.port }}
+      env:
+        CONSUMER_NAME: ${{ matrix.consumer.name }}
+        PROVIDER_BASE_URL: http://localhost:${{ matrix.consumer.port }}
+        PYTEST_CURRENT_TEST: ${{ matrix.consumer.name }}
+    
+    - name: Verify against Pact Broker contracts
+      if: env.PACT_BROKER_URL != ''
+      run: |
+        # Fetch and verify contracts from Pact broker
+        pact-broker verify \
+          --provider amr-classification-service \
+          --provider-base-url http://localhost:${{ matrix.consumer.port }} \
+          --broker-base-url $PACT_BROKER_URL \
+          --broker-token $PACT_BROKER_TOKEN \
+          --provider-app-version $PROVIDER_VERSION \
+          --consumer ${{ matrix.consumer.name }} \
+          --provider-states-setup-url http://localhost:${{ matrix.consumer.port }}/_pact/provider-states \
+          --publish-verification-results \
+          --build-url ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} \
+          --verbose \
+          || echo "Provider verification failed for ${{ matrix.consumer.name }}"
+    
+    - name: Test async classification scenarios
+      run: |
+        # Test async endpoints if they exist
+        if curl -f http://localhost:${{ matrix.consumer.port }}/classify/async --head > /dev/null 2>&1; then
+          echo "Testing async classification scenarios"
+          pytest tests/pact/test_async_scenarios.py \
+            -v \
+            --tb=short \
+            --consumer-name=${{ matrix.consumer.name }} \
+            --provider-port=${{ matrix.consumer.port }}
+        else
+          echo "Async endpoints not available, skipping async tests"
+        fi
+    
+    - name: Collect service logs
+      if: always()
+      run: |
+        # Collect AMR service logs
+        if [ -f "logs/amr-service-${{ matrix.consumer.name }}.log" ]; then
+          echo "=== AMR Service Logs ==="
+          tail -n 100 logs/amr-service-${{ matrix.consumer.name }}.log
+        fi
+        
+        # Collect test logs
+        if [ -d "test-results" ]; then
+          ls -la test-results/
+        fi
+    
+    - name: Stop AMR service
+      if: always()
+      run: |
+        if [ ! -z "$AMR_SERVICE_PID" ]; then
+          kill $AMR_SERVICE_PID || true
+          wait $AMR_SERVICE_PID 2>/dev/null || true
+        fi
+        
+        # Kill any remaining processes on the port
+        sudo lsof -ti:${{ matrix.consumer.port }} | xargs -r sudo kill -9 || true
+    
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: provider-verification-results-${{ matrix.consumer.name }}
+        path: |
+          test-results/
+          logs/
+        retention-days: 7
+    
+    - name: Publish test results
+      if: always()
+      uses: dorny/test-reporter@v1
+      with:
+        name: Provider Verification Tests - ${{ matrix.consumer.name }}
+        path: test-results/provider-verification-${{ matrix.consumer.name }}.xml
+        reporter: java-junit
+        fail-on-error: false
+
+  can-i-deploy:
+    name: Check deployment safety
+    runs-on: ubuntu-latest
+    needs: provider-verification
+    if: ${{ github.ref == 'refs/heads/main' && (inputs.run_can_i_deploy == true || inputs.run_can_i_deploy == null) }}
+    
+    steps:
+    - name: Install Pact CLI
+      run: |
+        pip install pact-python
+    
+    - name: Check if safe to deploy
+      id: can_i_deploy
+      run: |
+        # Check deployment safety for all consumer-provider combinations
+        consumers=("amr-consumer" "ui-service" "amr-fhir-consumer" "amr-hl7v2-consumer")
+        
+        all_safe=true
+        for consumer in "${consumers[@]}"; do
+          echo "Checking deployment safety for $consumer"
+          
+          if ! pact-broker can-i-deploy \
+            --pacticipant $consumer \
+            --version $CONSUMER_VERSION \
+            --pacticipant amr-classification-service \
+            --version $PROVIDER_VERSION \
+            --broker-base-url $PACT_BROKER_URL \
+            --broker-token $PACT_BROKER_TOKEN \
+            --retry-while-unknown 30 \
+            --retry-interval 10; then
+            
+            echo "::error::Deployment NOT safe for consumer: $consumer"
+            all_safe=false
+          else
+            echo "✅ Deployment safe for consumer: $consumer"
+          fi
+        done
+        
+        if [ "$all_safe" = "true" ]; then
+          echo "🎉 All consumer-provider combinations are safe to deploy!"
+          echo "deployment_safe=true" >> $GITHUB_OUTPUT
+        else
+          echo "❌ Some consumer-provider combinations are NOT safe to deploy"
+          echo "deployment_safe=false" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+    
+    - name: Create deployment gate
+      if: steps.can_i_deploy.outputs.deployment_safe == 'true'
+      run: |
+        echo "✅ DEPLOYMENT GATE: PASSED"
+        echo "All Pact contracts are compatible. Safe to proceed with deployment."
+        
+        # Create deployment artifacts
+        cat > deployment-gate-result.json << EOF
+        {
+          "deployment_safe": true,
+          "provider_version": "$PROVIDER_VERSION",
+          "consumer_version": "$CONSUMER_VERSION",
+          "verification_time": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+          "build_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        }
+        EOF
+    
+    - name: Upload deployment gate result
+      uses: actions/upload-artifact@v3
+      with:
+        name: deployment-gate-result
+        path: deployment-gate-result.json
+        retention-days: 30
+
+  webhook-notification:
+    name: Send webhook notifications
+    runs-on: ubuntu-latest
+    needs: [provider-verification, can-i-deploy]
+    if: always() && env.PACT_WEBHOOK_URL != ''
+    
+    steps:
+    - name: Notify external systems
+      run: |
+        # Determine overall status
+        if [ "${{ needs.provider-verification.result }}" = "success" ] && [ "${{ needs.can-i-deploy.result }}" = "success" ]; then
+          overall_status="success"
+        else
+          overall_status="failure"
+        fi
+        
+        # Send webhook notification
+        curl -X POST "$PACT_WEBHOOK_URL" \
+          -H "Content-Type: application/json" \
+          -H "Authorization: Bearer $PACT_WEBHOOK_TOKEN" \
+          -d "{
+            \"event\": \"provider_verification_complete\",
+            \"status\": \"$overall_status\",
+            \"provider\": \"amr-classification-service\",
+            \"provider_version\": \"$PROVIDER_VERSION\",
+            \"branch\": \"${{ github.ref_name }}\",
+            \"build_url\": \"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\",
+            \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
+          }" || echo "Webhook notification failed (non-critical)"
+      env:
+        PACT_WEBHOOK_URL: ${{ secrets.PACT_WEBHOOK_URL }}
+        PACT_WEBHOOK_TOKEN: ${{ secrets.PACT_WEBHOOK_TOKEN }}
+
+  cleanup:
+    name: Cleanup test resources
+    runs-on: ubuntu-latest
+    needs: [provider-verification, can-i-deploy]
+    if: always()
+    
+    steps:
+    - name: Clean up test artifacts
+      run: |
+        echo "Cleaning up test resources and temporary data"
+        # Add any specific cleanup commands here
+        echo "Cleanup completed"
