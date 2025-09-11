@@ -213,6 +213,15 @@ def create_app() -> FastAPI:
     
     app.include_router(router)
     
+    # Include audit routes if Kafka is enabled
+    if settings.KAFKA_ENABLED:
+        try:
+            from .api.audit_routes import router as audit_router
+            app.include_router(audit_router)
+            logger.info("Audit API routes enabled")
+        except ImportError as e:
+            logger.warning(f"Audit routes unavailable: {e}")
+    
     # Include Pact verification routes (only in testing environment)
     if HAS_PACT_ROUTES and (os.getenv("TESTING") == "true" or os.getenv("PACT_VERIFICATION") == "true"):
         app.include_router(pact_router)

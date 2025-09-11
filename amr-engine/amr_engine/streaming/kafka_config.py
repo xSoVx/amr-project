@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Optional, Dict, Any, Literal
 from enum import Enum
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -52,7 +52,8 @@ class KafkaSSLConfig(BaseModel):
     cert_required: bool = Field(True, description="Whether to require certificate verification")
     check_hostname: bool = Field(True, description="Whether to check hostname in certificate")
     
-    @validator('ca_cert_path', 'client_cert_path', 'client_key_path')
+    @field_validator('ca_cert_path', 'client_cert_path', 'client_key_path')
+    @classmethod
     def validate_cert_path(cls, v):
         if v and not Path(v).exists():
             logger.warning(f"Certificate file not found: {v}")
@@ -66,10 +67,11 @@ class KafkaSASLConfig(BaseModel):
     username: Optional[str] = Field(None, description="SASL username")
     password: Optional[str] = Field(None, description="SASL password")
     
-    @validator('username', 'password')
-    def validate_sasl_credentials(cls, v, field):
-        if field.name in ['username', 'password'] and not v:
-            logger.warning(f"SASL {field.name} not provided")
+    @field_validator('username', 'password')
+    @classmethod
+    def validate_sasl_credentials(cls, v, info):
+        if info.field_name in ['username', 'password'] and not v:
+            logger.warning(f"SASL {info.field_name} not provided")
         return v
 
 

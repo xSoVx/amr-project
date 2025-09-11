@@ -56,7 +56,7 @@ class Settings(BaseSettings):
     
     # Kafka Configuration
     KAFKA_ENABLED: bool = False
-    KAFKA_ENVIRONMENT: str = "local"
+    KAFKA_ENVIRONMENT: str = "dev"
     KAFKA_BOOTSTRAP_SERVERS: str = "localhost:9092"
     KAFKA_AUDIT_TOPIC: str = "amr-audit-events"
     KAFKA_DLQ_TOPIC: str = "amr-audit-events-dlq"
@@ -70,6 +70,14 @@ class Settings(BaseSettings):
     KAFKA_SCHEMA_REGISTRY_URL: Optional[str] = None
     KAFKA_SCHEMA_REGISTRY_USERNAME: Optional[str] = None
     KAFKA_SCHEMA_REGISTRY_PASSWORD: Optional[str] = None
+    
+    # Audit Publisher Configuration
+    AUDIT_BUFFER_SIZE: int = 10000
+    AUDIT_BATCH_SIZE: int = 50
+    AUDIT_FLUSH_INTERVAL: float = 5.0
+    AUDIT_BACKUP_DIR: str = "/tmp/amr-audit-backup"
+    AUDIT_CIRCUIT_BREAKER_FAILURES: int = 5
+    AUDIT_CIRCUIT_BREAKER_TIMEOUT: float = 60.0
 
     def rules_paths(self) -> list[Path]:
         p = Path(self.AMR_RULES_PATH)
