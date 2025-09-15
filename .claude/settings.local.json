@@ -32,7 +32,10 @@
       "Bash(docker restart:*)",
       "Bash(kubectl:*)",
       "Bash(bash:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(amr-engine:prod)",
+      "Bash(amr-engine:audit-integrated:*)",
+      "Bash(docker:*)"
     ],
     "deny": [],
     "ask": []

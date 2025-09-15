@@ -5,7 +5,7 @@ import logging
 import os
 from typing import Any, List, Optional
 
-from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, FastAPI, HTTPException, Request, Response, status
 from fastapi.openapi.utils import get_openapi
 import yaml
 from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, Counter, generate_latest
@@ -19,6 +19,8 @@ from ..core.metrics import metrics
 from ..core.hl7v2_parser import parse_hl7v2_message
 from ..core.rules_loader import RulesLoader
 from ..core.schemas import ClassificationInput, ClassificationResult, OperationOutcome, ProblemDetails, OperationOutcomeIssue
+from ..core.correlation import get_or_create_correlation_id
+from ..core.audit_integration import add_audit_background_task, get_audit_service
 from .deps import admin_auth, require_admin_auth
 try:
     from ..cache.redis_cache import get_cache_manager
@@ -38,6 +40,30 @@ CLASSIFICATIONS = Counter(
     labelnames=("decision",),
     registry=registry,
 )
+
+
+def _add_audit_for_classification_results(
+    background_tasks: BackgroundTasks,
+    request: Request,
+    results: List[ClassificationResult]
+) -> None:
+    """Add audit publishing as background task for classification results."""
+    if not results:
+        return
+    
+    try:
+        # Get correlation ID from request context
+        correlation_id = get_or_create_correlation_id()
+        
+        # Add audit background task
+        add_audit_background_task(
+            background_tasks=background_tasks,
+            classification_results=results,
+            request=request,
+            correlation_id=correlation_id
+        )
+    except Exception as e:
+        logger.error(f"Failed to add audit background task: {e}")
 
 
 @router.get(
@@ -79,7 +105,7 @@ def healthz() -> dict:
         }
     }
 )
-def health() -> dict:
+async def health() -> dict:
     """Health check endpoint to verify service availability."""
     health_info = {"status": "healthy"}
     
@@ -94,6 +120,14 @@ def health() -> dict:
             health_info["cache"] = {"enabled": False, "error": str(e)}
     else:
         health_info["cache"] = {"enabled": False, "status": "unavailable"}
+    
+    # Add audit service health information
+    try:
+        audit_service = get_audit_service()
+        audit_health = await audit_service.get_health_status()
+        health_info["audit"] = audit_health
+    except Exception as e:
+        health_info["audit"] = {"enabled": False, "error": str(e)}
     
     return health_info
 
@@ -414,7 +448,7 @@ def metrics() -> Response:
         }
     }
 )
-async def classify(request: Request, payload: Any, profile_pack: Optional[str] = None) -> List[ClassificationResult]:
+async def classify(request: Request, background_tasks: BackgroundTasks, payload: Any, profile_pack: Optional[str] = None) -> List[ClassificationResult]:
     """
     Enhanced classification endpoint supporting FHIR R4, HL7v2, and direct JSON input.
     
@@ -463,6 +497,10 @@ async def classify(request: Request, payload: Any, profile_pack: Optional[str] =
         res = classifier.classify(item)
         CLASSIFICATIONS.labels(res.decision).inc()
         results.append(res)
+    
+    # Add audit publishing as background task
+    _add_audit_for_classification_results(background_tasks, request, results)
+    
     return results
 
 
@@ -708,7 +746,7 @@ def rules_reload(admin_user: dict = Depends(require_admin_auth)) -> dict:
         }
     }
 )
-async def classify_fhir(request: Request, profile_pack: Optional[str] = None) -> List[ClassificationResult]:
+async def classify_fhir(request: Request, background_tasks: BackgroundTasks, profile_pack: Optional[str] = None) -> List[ClassificationResult]:
     """
     Dedicated endpoint for FHIR Bundle and Observation processing.
     
@@ -773,6 +811,9 @@ async def classify_fhir(request: Request, profile_pack: Optional[str] = None) ->
         res = classifier.classify(item)
         CLASSIFICATIONS.labels(res.decision).inc()
         results.append(res)
+    
+    # Add audit publishing as background task
+    _add_audit_for_classification_results(background_tasks, request, results)
     
     return results
 
@@ -923,7 +964,7 @@ async def _parse_input(payload: Any, request: Request, profile_pack: Optional[st
         }
     }
 )
-async def classify_hl7v2(request: Request) -> List[ClassificationResult]:
+async def classify_hl7v2(request: Request, background_tasks: BackgroundTasks) -> List[ClassificationResult]:
     """
     Dedicated endpoint for HL7v2 message processing.
     
@@ -965,6 +1006,9 @@ async def classify_hl7v2(request: Request) -> List[ClassificationResult]:
         res = classifier.classify(item)
         CLASSIFICATIONS.labels(res.decision).inc()
         results.append(res)
+    
+    # Add audit publishing as background task
+    _add_audit_for_classification_results(background_tasks, request, results)
     
     return results
 

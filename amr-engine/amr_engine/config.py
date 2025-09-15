@@ -72,6 +72,7 @@ class Settings(BaseSettings):
     KAFKA_SCHEMA_REGISTRY_PASSWORD: Optional[str] = None
     
     # Audit Publisher Configuration
+    AUDIT_STREAMING_ENABLED: bool = True
     AUDIT_BUFFER_SIZE: int = 10000
     AUDIT_BATCH_SIZE: int = 50
     AUDIT_FLUSH_INTERVAL: float = 5.0

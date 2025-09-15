@@ -4,6 +4,7 @@ import logging
 import os
 from typing import Any
 from pathlib import Path
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -18,6 +19,8 @@ except ImportError:
     pact_router = None
 from .config import get_settings
 from .core.exceptions import FHIRValidationError, RulesValidationError
+from .core.correlation_middleware import CorrelationIDMiddleware
+from .core.audit_integration import get_audit_service
 from .security.middleware import PseudonymizationMiddleware, PseudonymizationContext
 from .security.pseudonymization import PseudonymizationConfig
 try:
@@ -37,6 +40,30 @@ except ImportError as e:
     def init_tracing(*args, **kwargs): return None
     def get_tracer(): return None
 from .logging_setup import setup_logging
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan management with audit service initialization and shutdown."""
+    logger = logging.getLogger(__name__)
+    
+    # Startup: Initialize audit service
+    try:
+        audit_service = get_audit_service()
+        await audit_service.initialize()
+        logger.info("Audit service initialized successfully")
+    except Exception as e:
+        logger.warning(f"Failed to initialize audit service: {e}")
+    
+    yield
+    
+    # Shutdown: Gracefully shutdown audit service
+    try:
+        audit_service = get_audit_service()
+        await audit_service.shutdown()
+        logger.info("Audit service shutdown completed")
+    except Exception as e:
+        logger.error(f"Error during audit service shutdown: {e}")
 
 
 def create_app() -> FastAPI:
@@ -94,6 +121,7 @@ def create_app() -> FastAPI:
     
     app = FastAPI(
         title="AMR Classification Engine",
+        lifespan=lifespan,
         description="""
         ## Antimicrobial Resistance (AMR) Classification Microservice
         
@@ -202,6 +230,13 @@ def create_app() -> FastAPI:
     if tracing:
         tracing.instrument_fastapi(app)
         tracing.instrument_requests()
+    
+    # Add correlation ID middleware
+    try:
+        app.add_middleware(CorrelationIDMiddleware)
+        logger.info("Correlation ID middleware added to FastAPI app")
+    except Exception as e:
+        logger.error(f"Failed to add correlation ID middleware: {e}")
     
     # Add pseudonymization middleware if enabled
     if pseudonymization_middleware:
